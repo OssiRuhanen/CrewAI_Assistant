@@ -1,0 +1,7 @@
+assist_task:
+  description: >
+    Respond to the user's message: "{user_message}"
+    Provide accurate, helpful, and contextually relevant responses.
+  expected_output: >
+    A clear, helpful, and contextually relevant response that addresses the user's needs.
+  agent: assistant

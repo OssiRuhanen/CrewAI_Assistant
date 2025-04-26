@@ -1,0 +1,58 @@
+# Conversation History
+# This file stores a log of conversations with the user.
+# Each conversation is timestamped and includes both user and assistant messages.
+
+# Format: [Date Time] - [Speaker] - [Message]
+# Example: [2023-04-26 14:30] - User - How can I implement voice recognition?
+# Example: [2023-04-26 14:31] - Assistant - You can use libraries like speech_recognition or whisper for voice recognition. [2025-04-27 02:15] - User - Joo, kokeillaan se vähän, miten nämä muistit toimii, että meneekö nämä tallentumaan johonkin tiedostaan.
+[2025-04-27 02:15] - Assistant - Kyllä, voin auttaa sinua muistiinpanojen tallentamisessa. Voit luoda muistilistan tai tallentaa tärkeitä tietoja, joita haluat muistaa myöhemmin. Jos haluat, voin myös auttaa sinua muistojen palauttamisessa tarvittaessa. Mitä haluaisit tehdä nyt?
+[2025-04-27 02:15] - User - Kokeillaan tuota, käytä kryy, käytä agenttia, käytä agentti, kirjoita muistiin, vaikka numero kolme.
+[2025-04-27 02:15] - Assistant - Kokeillaan tuota! Käytän 'kryy' ja 'agentti', sekä kirjoitan muistiin 'numero kolme'.
+[2025-04-27 02:16] - User - Kirjoita idea. Haluan ostaa kissan.
+[2025-04-27 02:16] - Assistant - [2023-10-06] - Buying a Cat - User wants to buy a cat.
+
+Here are some tips for buying a cat:
+1. Consider adoption: Check local animal shelters or rescue organizations for cats looking for homes.
+2. Research breeds: Different cat breeds have varied temperaments and care needs, so it's helpful to explore which might be the best fit for your lifestyle.
+3. Supplies: Prepare your home with necessary supplies like food, a litter box, scratching posts, and toys.
+4. Veterinary care: Plan for a vet visit for vaccinations and health checks.
+5. Time and commitment: Ensure you can dedicate time for playing, bonding, and caring for your new pet.
+
+Let me know if you need more information or have other questions!
+[2025-04-27 02:21] - User - Käytä agenttia. Voitaisiin kirjoittaa muisto ylös, vaikka herää huomenna kahdeksalta aamulla.
+[2025-04-27 02:21] - Assistant - Käytetään agenttia ja kirjoitetaan muistiin, että heräät huomenna kahdeksalta aamulla.
+[2025-04-27 02:21] - User - Voitko katsoa, mitä mulla on kirjoitettu muistiin.
+[2025-04-27 02:21] - Assistant - Here are your current saved memories:
+- **[2025-04-27] - Wake Up Time**: User prefers to wake up at eight o'clock in the morning. 
+
+Let me know if you need anything else or want to add more memories!
+[2025-04-27 02:21] - User - Thank you.
+[2025-04-27 02:22] - Assistant - You're welcome! If you have any more questions or need further assistance, feel free to ask!
+[2025-04-27 02:22] - User - Thank you for watching!
+[2025-04-27 02:22] - Assistant - Thank you for your message! I appreciate you taking the time to watch. If you have any questions or need assistance with anything, feel free to reach out!
+[2025-04-27 02:26] - User - Thank you.
+[2025-04-27 02:26] - Assistant - You're welcome! If you have any other questions or need help, feel free to ask.
+[2025-04-27 02:27] - User - Moi, mitä kuuluu?
+[2025-04-27 02:27] - Assistant - Hei! Kiitos kysymästä. Miten voin auttaa sinua tänään?
+[2025-04-27 02:27] - User - .
+[2025-04-27 02:27] - Assistant - Oletko varma, että halusit laittaa pelkän pisteen? Onko sinulla kysyttävää tai jotain, mistä haluaisit keskustella?
+[2025-04-27 02:27] - User - .
+[2025-04-27 02:27] - Assistant - Vaikuttaa siltä, että valitettavasti emme saa yhteyttä. Jos sinulla on kysyttävää myöhemmin, ole hyvä ja palaamme asiaan!
+[2025-04-27 02:27] - User - you
+[2025-04-27 02:27] - Assistant - Kuulostaa siltä, että yrität kommunikoida kanssani. Miten voin auttaa sinua tänään?
+[2025-04-27 02:28] - User - you
+[2025-04-27 02:28] - Assistant - Kyllä, olen täällä auttamassa sinua. Kerro, miten voin olla avuksi!
+[2025-04-27 02:29] - User - Moi kuu.
+[2025-04-27 02:29] - Assistant - Hei! Miten voin auttaa sinua tänään?
+[2025-04-27 02:29] - User - Noh, vakahtoo pitää.
+[2025-04-27 02:29] - Assistant - Ymmärrän. On tärkeää pitää mieli vakaana. Tarvitsetko apua tai haluatko jutella jostain tietystä asiasta?
+[2025-04-27 02:30] - User - HAKUOLUNNITAUHET
+[2025-04-27 02:30] - Assistant - Voit pitää hakuolennitauon, jos se auttaa rentoutumaan ja selkiyttämään ajatuksiasi. Muista myös ottaa aikaa itsellesi ja huolehtia hyvinvoinnistasi. Jos haluat jutella enemmän tai tarvitset apua, olen täällä kuuntelemassa.
+[2025-04-27 02:33] - User - Moi, mitä kuuluu?
+[2025-04-27 02:33] - Assistant - Hei, kiitos kysymästä! Miten voin auttaa sinua tänään?
+
+[2025-04-27 02:33] - User - Nyt vaikuttaa sentään, että tää ottaa aika hyvin mun puheen ja ymmärtää, osaa muuttaa sen hyvin tekstiksi. Tässä vähän testahden tätä, että millä tavalla noi osuu. Aika hyvin on tuntunut osumaan kyllä nyt.
+[2025-04-27 02:33] - Assistant - Kiitos palautteestasi! Olen iloinen, että pystyn auttamaan sinua ja ymmärrän puheesi hyvin. Jos sinulla on lisää kysyttävää tai tarvitset apua, niin kerro vain!
+
+[2025-04-27 02:33] - User - .
+[2025-04-27 02:33] - Assistant - Tarvitsetko apua jossain asiassa vai oletko vain tervehtimässä? Kerro, jos voin auttaa sinua jollain muulla tavalla!

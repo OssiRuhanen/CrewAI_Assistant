@@ -1,0 +1,9 @@
+# Conversation Memories
+# This file stores important information from conversations with the user.
+# The agent will add new memories here as it learns from interactions.
+
+# Format: [Date] - [Topic] - [Key Information]
+# Example: [2023-04-26] - User Preferences - User prefers concise responses [2025-04-27] - User Instructions - User requested to use 'kryy', 'agentti', and write down 'numero kolme'.
+[2025-04-27] - Wake Up Time - User prefers to wake up at eight o'clock in the morning.
+[2025-04-27] - User Instructions - User expressed gratitude with 'Thank you.'
+[2025-04-27] - User Responses - User thanked for watching.

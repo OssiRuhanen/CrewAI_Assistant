@@ -1,0 +1,25 @@
+[project]
+name = "agent_assistant"
+version = "0.1.0"
+description = "agent_assistant using crewAI"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "crewai[tools]>=0.114.0,<1.0.0"
+]
+
+[project.scripts]
+agent_assistant = "agent_assistant.main:run"
+run_crew = "agent_assistant.main:run"
+train = "agent_assistant.main:train"
+replay = "agent_assistant.main:replay"
+test = "agent_assistant.main:test"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "crew"
+agents_file = "src/agent_assistant/config/agents.yaml"
+tasks_file = "src/agent_assistant/config/tasks.yaml"

@@ -1,0 +1,7 @@
+# User Ideas
+# This file stores ideas and concepts shared by the user.
+# Add new ideas with a timestamp and brief description.
+
+# Format: [Date] - [Idea Title] - [Description]
+# Example: [2023-04-26] - AI Assistant Enhancement - Adding voice recognition capabilities [2025-04-27] - Buying a Cat - User wants to buy a cat.
+[2025-04-27] - User Idea - Kirjoita idea. Haluan ostaa kissan.
