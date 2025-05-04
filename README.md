@@ -36,9 +36,17 @@ OPENAI_API_KEY=your_api_key_here
 
 ## Usage
 
-Run the main script to start the assistant:
+Run the assistant from the project root:
 ```
-python -m agent_assistant.src.agent_assistant.main
+python run.py
+```
+
+All persistent data (memories, ideas, conversation history, tasks) is stored in the `knowledge/` directory at the project root.
+
+Make sure your `.env` file is in the project root and contains your OpenAI API key (and optionally Google Cloud credentials):
+```
+OPENAI_API_KEY=your_api_key_here
+GOOGLE_APPLICATION_CREDENTIALS=absolute_path_to_your_google_credentials.json
 ```
 
 ### Voice Commands
