@@ -48,4 +48,14 @@ temp_speech.mp3
 
 # OS specific
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Ignore nexusbridge json file
+agent_assistant/nexusbridge-f31ca052f9ee.json
+
+# Ignore all files in the knowledge directory
+agent_assistant/knowledge/* 
+knowledge/conversation_history.txt
+knowledge/ideas.txt
+knowledge/memories.txt
+agent_assistant/nexusbridge-f31ca052f9ee.json

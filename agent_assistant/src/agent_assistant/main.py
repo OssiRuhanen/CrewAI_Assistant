@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import playsound
 import threading
 from typing import Optional
+from google.cloud import texttospeech
 
 from agent_assistant.crew import AgentAssistant
 from agent_assistant.memory import MemoryManager
@@ -46,6 +47,10 @@ SILENCE_THRESHOLD = 500  # RMS amplitude. Adjusted based on test results
 INPUT_DEVICE = None  # Will be set to default if None
 OUTPUT_DEVICE = None  # Will be set to default if None
 PRE_RECORD_BUFFER_SECONDS = 0.5  # Buffer to capture the beginning of speech
+
+# Google TTS Configuration
+USE_GOOGLE_TTS = True  # Set to True to use Google TTS
+SELECTED_GOOGLE_TTS_VOICE = "fi-FI-Wavenet-A"  # Default, can be changed by user
 
 # --- Initialization ---
 try:
@@ -280,55 +285,52 @@ def transcribe_audio(audio, fs):
         traceback.print_exc()
         return None
 
-def speak_text(text_to_speak):
-    """Uses OpenAI TTS to convert text to speech and plays it."""
+def speak_text_google(text_to_speak):
+    """Uses Google Cloud TTS to convert text to speech and plays it."""
     if not text_to_speak:
-        print("Varoitus: Ei tekstiä puhuttavaksi.")
         return
+    client = texttospeech.TextToSpeechClient()
+    synthesis_input = texttospeech.SynthesisInput(text=text_to_speak)
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="fi-FI",
+        name=SELECTED_GOOGLE_TTS_VOICE,
+        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
+    )
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.LINEAR16
+    )
+    response = client.synthesize_speech(
+        input=synthesis_input, voice=voice, audio_config=audio_config
+    )
+    audio_stream = io.BytesIO(response.audio_content)
+    data, samplerate = sf.read(audio_stream, dtype='int16')
+    sd.play(data, samplerate)
+    sd.wait()
 
-    print("Luodaan puhetta...")
-    try:
-        # Use stream=True for potentially faster playback start, but requires more complex handling.
-        # For simplicity here, we get the whole audio content first.
-        response = openai_client.audio.speech.create(
-            model=TTS_MODEL,
-            voice=TTS_VOICE,
-            input=text_to_speak,
-            response_format="opus" # opus is efficient, soundfile can handle it
-        )
-        
-        # Read the audio data from the response content
-        audio_bytes = response.content
-        audio_stream = io.BytesIO(audio_bytes)
-
-        print("Toistetaan vastaus...")
-        # Use soundfile to read the audio data (handles various formats like opus)
-        data, samplerate = sf.read(audio_stream)
-        
-        # Make sure we have the complete audio data
-        if len(data) == 0:
-            print("Varoitus: Tyhjä äänidata vastaanotettu.")
-            return
-            
-        # Play the audio and wait for it to finish
-        sd.play(data, samplerate, device=OUTPUT_DEVICE)
-        sd.wait() # Wait for playback to finish
-
-    except sf.SoundFileError as e:
-        print(f"Virhe äänivirran lukemisessa (onko ffmpeg asennettu?): {e}")
-    except sd.PortAudioError as e:
-         print(f"\nVirhe äänilaitteessa: {e}")
-         print("Tarkista kaiuttimen/kuulokkeiden yhteys ja järjestelmäasetukset.")
-    except openai.APIConnectionError as e:
-        print(f"OpenAI API Yhteysvirhe (TTS): {e}")
-    except openai.RateLimitError as e:
-        print(f"OpenAI Nopeusrajoitus ylitetty (TTS): {e}")
-    except openai.APIStatusError as e:
-        print(f"OpenAI API Tilavirhe (TTS) (Tila {e.status_code}): {e.response}")
-    except Exception as e:
-        print(f"Odottamaton virhe tapahtui tekstistä-puheeksi-muuntamisessa: {e}")
-        import traceback
-        traceback.print_exc()
+def speak_text(text_to_speak):
+    """Speaks text using the selected TTS engine."""
+    if not text_to_speak:
+        return
+    if USE_GOOGLE_TTS:
+        speak_text_google(text_to_speak)
+    else:
+        # OpenAI TTS fallback
+        try:
+            response = openai_client.audio.speech.create(
+                model=TTS_MODEL,
+                voice=TTS_VOICE,
+                input=text_to_speak,
+                response_format="opus"
+            )
+            audio_bytes = response.content
+            audio_stream = io.BytesIO(audio_bytes)
+            data, samplerate = sf.read(audio_stream)
+            if len(data) == 0:
+                return
+            sd.play(data, samplerate, device=OUTPUT_DEVICE)
+            sd.wait()
+        except Exception as e:
+            print(f"Odottamaton virhe tapahtui tekstistä-puheeksi-muuntamisessa: {e}")
 
 def get_openai_response(current_history):
     """Sends the chat history to OpenAI and gets the assistant's response."""
@@ -460,6 +462,34 @@ def voice_chat():
             print(f"Virhe: {str(e)}")
             print("Yritä uudelleen.")
 
+def list_google_finnish_voices():
+    """List available Finnish voices from Google Cloud TTS and allow user to select one. Play a short example after selection."""
+    global SELECTED_GOOGLE_TTS_VOICE
+    try:
+        client = texttospeech.TextToSpeechClient()
+        voices = client.list_voices(language_code="fi-FI")
+        print("\n=== Käytettävissä olevat suomenkieliset Google TTS -äänet ===")
+        for idx, voice in enumerate(voices.voices):
+            gender = texttospeech.SsmlVoiceGender(voice.ssml_gender).name
+            print(f"[{idx+1}] Nimi: {voice.name}, Sukupuoli: {gender}, Sample Rate: {voice.natural_sample_rate_hertz}")
+        print("==========================================================\n")
+        valinta = input("Valitse äänen numero (tai paina Enter käyttääksesi nykyistä): ").strip()
+        if valinta.isdigit():
+            idx = int(valinta) - 1
+            if 0 <= idx < len(voices.voices):
+                SELECTED_GOOGLE_TTS_VOICE = voices.voices[idx].name
+                print(f"Valittu ääni: {SELECTED_GOOGLE_TTS_VOICE}")
+            else:
+                print("Virheellinen valinta. Käytetään nykyistä ääntä.")
+        else:
+            print(f"Käytetään nykyistä ääntä: {SELECTED_GOOGLE_TTS_VOICE}")
+        # Play a short example with the selected voice
+        example_text = "Tämä on esimerkkilause valitulla äänellä."
+        print("Toistetaan esimerkkilause...")
+        speak_text_google(example_text)
+    except Exception as e:
+        print(f"Virhe äänien listauksessa: {e}")
+
 def main():
     # Start the task checking thread
     task_thread = threading.Thread(target=check_upcoming_tasks, daemon=True)
@@ -471,6 +501,7 @@ def main():
     print("Kirjoita 'text' aloittaaksesi tekstikeskustelutilan")
     print("Kirjoita 'memories' nähdäksesi viimeisimmät muistot")
     print("Kirjoita 'ideas' nähdäksesi viimeisimmät ideat")
+    print("Kirjoita 'voices' nähdäksesi käytettävissä olevat Google TTS -äänet")
     print("Kirjoita 'quit' tai 'exit' lopettaaksesi istunnon")
     print("\nMuistutusten käyttö:")
     print("- 'lisää muistutus [tehtävä] kello [aika]'")
@@ -478,7 +509,7 @@ def main():
     
     while True:
         try:
-            command = input("\nSyötä komento (voice/text/memories/ideas/quit): ").strip().lower()
+            command = input("\nSyötä komento (voice/text/memories/ideas/voices/quit): ").strip().lower()
             
             if command in ["quit", "exit"]:
                 print("Näkemiin!")
@@ -503,8 +534,10 @@ def main():
                         print(idea)
                 else:
                     print("Ei vielä ideoita.")
+            elif command == "voices":
+                list_google_finnish_voices()
             else:
-                print("Virheellinen komento. Kirjoita 'voice' äänikeskustelua varten, 'text' tekstikeskustelua varten, 'memories' muistojen katsomista varten, 'ideas' ideoiden katsomista varten tai 'quit' lopettaaksesi.")
+                print("Virheellinen komento. Kirjoita 'voice' äänikeskustelua varten, 'text' tekstikeskustelua varten, 'memories' muistojen katsomista varten, 'ideas' ideoiden katsomista varten, 'voices' äänten listaukseen tai 'quit' lopettaaksesi.")
                 
         except KeyboardInterrupt:
             print("\nKäyttäjän keskeyttämä. Poistutaan.")
