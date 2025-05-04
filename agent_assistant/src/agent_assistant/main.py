@@ -12,9 +12,12 @@ import soundfile as sf
 import time
 from dotenv import load_dotenv
 import playsound
+import threading
+from typing import Optional
 
 from agent_assistant.crew import AgentAssistant
 from agent_assistant.memory import MemoryManager
+from agent_assistant.task_manager import TaskManager
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
@@ -51,8 +54,9 @@ except Exception as e:
     print(f"Virhe OpenAI-asiakkaan alustamisessa: {e}")
     sys.exit(1)
 
-# Initialize memory manager
+# Initialize memory manager and task manager
 memory_manager = MemoryManager()
+task_manager = TaskManager()
 
 # --- Chat History for Direct OpenAI API ---
 chat_history = [
@@ -103,6 +107,48 @@ def test():
     except Exception as e:
         raise Exception(f"An error occurred while testing the crew: {e}")
 
+def check_upcoming_tasks():
+    """Background thread to check for upcoming tasks."""
+    while True:
+        upcoming_tasks = task_manager.get_upcoming_tasks(minutes_ahead=5)
+        for task in upcoming_tasks:
+            message = f"Muistutus: {task['description']} kello {task['time'].split()[1]}"
+            print(f"\n{message}")
+            speak_text(message)
+            # Mark as done to avoid repeated alerts
+            task_manager.mark_task_done(task['description'])
+        time.sleep(60)  # Check every minute
+
+def process_task_command(message: str) -> Optional[str]:
+    """Process task-related commands."""
+    if message.lower().startswith("lisää muistutus"):
+        try:
+            # Extract time and description
+            parts = message.split("kello")
+            if len(parts) != 2:
+                return "Virheellinen muistutuksen muoto. Käytä muotoa: 'lisää muistutus [tehtävä] kello [aika]'"
+            
+            description = parts[0].replace("lisää muistutus", "").strip()
+            time_str = parts[1].strip()
+            
+            if task_manager.add_task(description, time_str):
+                return f"Muistutus lisätty: {description} kello {time_str}"
+            else:
+                return "Virheellinen aika. Käytä muotoa HH:MM"
+        except Exception as e:
+            return f"Virhe muistutuksen lisäämisessä: {str(e)}"
+    
+    elif message.lower().startswith("näytä muistutukset"):
+        tasks = task_manager.get_all_pending_tasks()
+        if not tasks:
+            return "Ei aktiivisia muistutuksia."
+        response = "Aktiiviset muistutukset:\n"
+        for task in tasks:
+            response += f"- {task['description']} kello {task['time'].split()[1]}\n"
+        return response
+    
+    return None
+
 def chat():
     """
     Chat with the assistant agent in a loop.
@@ -114,6 +160,12 @@ def chat():
         if user_message.lower() in ["exit", "quit"]:
             break
         try:
+            # Check for task commands first
+            task_response = process_task_command(user_message)
+            if task_response:
+                print("Avustaja:", task_response)
+                continue
+            
             # Log user message to conversation history
             memory_manager.log_conversation("User", user_message)
             
@@ -129,7 +181,7 @@ def chat():
         except Exception as e:
             print(f"Virhe: {e}")
 
-def record_audio_with_silence_detection(max_duration=30, silence_threshold=500, silence_duration=2):
+def record_audio_with_silence_detection(max_duration=30, silence_threshold=SILENCE_THRESHOLD, silence_duration=1):
     """
     Records audio until silence is detected for a specified duration.
     
@@ -141,50 +193,61 @@ def record_audio_with_silence_detection(max_duration=30, silence_threshold=500, 
     Returns:
         Tuple of (audio_data, sample_rate)
     """
-    print("Kuuntelen... (puhu nyt, pysäytä 2 sekunniksi lopettaaksesi)")
-    
     # Initialize variables
     sample_rate = SAMPLE_RATE
     silence_frames = 0
     silence_frames_threshold = int(silence_duration * sample_rate / 1024)  # Convert to frames
     audio_chunks = []
-    recording = True
+    recording = False  # Start in non-recording mode
+    consecutive_silence = 0
+    consecutive_sound = 0
+    sound_threshold = 3  # Number of consecutive sound frames needed to start recording
     
     # Create a callback function to process audio in chunks
     def audio_callback(indata, frames, time, status):
-        nonlocal silence_frames, recording, audio_chunks
-        if status:
-            print(f"Tila: {status}")
+        nonlocal silence_frames, recording, audio_chunks, consecutive_silence, consecutive_sound
         
         # Calculate the RMS of the current chunk
         rms = np.sqrt(np.mean(indata**2))
         
         # Check if this is silence
         if rms < silence_threshold / 32768:  # Normalize threshold
-            silence_frames += 1
+            consecutive_silence += 1
+            consecutive_sound = 0
         else:
-            silence_frames = 0
+            consecutive_silence = 0
+            consecutive_sound += 1
         
-        # If we've had enough silence, stop recording
-        if silence_frames >= silence_frames_threshold:
-            recording = False
+        # Start recording only after detecting continuous sound
+        if not recording and consecutive_sound >= sound_threshold:
+            recording = True
         
-        # Add the chunk to our list
-        audio_chunks.append(indata.copy())
+        # If we're recording, add the chunk to our list
+        if recording:
+            audio_chunks.append(indata.copy())
+            
+            # Check if we've had enough silence to stop
+            if consecutive_silence >= silence_frames_threshold:
+                recording = False
     
     # Start the input stream
     with sd.InputStream(samplerate=sample_rate, channels=CHANNELS, dtype='float32', 
                        device=INPUT_DEVICE, callback=audio_callback, blocksize=1024):
         # Record until we detect enough silence or hit the max duration
         start_time = time.time()
-        while recording and (time.time() - start_time) < max_duration:
+        while (time.time() - start_time) < max_duration:
             time.sleep(0.1)
+            if not recording and (time.time() - start_time) > 5:  # Timeout after 5 seconds of no sound
+                break
     
     # If we have recorded anything, concatenate the chunks
     if audio_chunks:
         audio_data = np.concatenate(audio_chunks)
         # Convert to int16 for compatibility with the rest of the code
         audio_data = (audio_data * 32768).astype(np.int16)
+        duration = len(audio_data)/sample_rate
+        if duration < 0.5:  # If recording is too short, probably noise
+            return None, sample_rate
         return audio_data, sample_rate
     else:
         return None, sample_rate
@@ -192,17 +255,14 @@ def record_audio_with_silence_detection(max_duration=30, silence_threshold=500, 
 def transcribe_audio(audio, fs):
     """Transcribes audio using OpenAI's Whisper API."""
     if audio is None:
-        print("Ei äänidataa transkriboitavaksi.")
         return None
     
     try:
-        print("Tallennetaan ääni väliaikaiseen tiedostoon...")
         # Save audio to a temporary WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
             temp_filename = temp_file.name
             wav.write(temp_filename, fs, audio)
         
-        print("Lähetetään OpenAI:lle transkriptiota varten...")
         # Open the file for transcription
         with open(temp_filename, "rb") as audio_file:
             transcript = openai_client.audio.transcriptions.create(
@@ -373,6 +433,13 @@ def voice_chat():
                 speak_text(response)
                 continue
             
+            # Check for task commands first
+            task_response = process_task_command(transcription)
+            if task_response:
+                print(f"Avustaja: {task_response}")
+                speak_text(task_response)
+                continue
+            
             # Process based on mode
             if use_crewai:
                 # Use CrewAI for processing
@@ -394,6 +461,9 @@ def voice_chat():
             print("Yritä uudelleen.")
 
 def main():
+    # Start the task checking thread
+    task_thread = threading.Thread(target=check_upcoming_tasks, daemon=True)
+    task_thread.start()
     
     print("\n🎙️ Ääniavustaja 💬")
     print("---------------------------------------")
@@ -402,6 +472,9 @@ def main():
     print("Kirjoita 'memories' nähdäksesi viimeisimmät muistot")
     print("Kirjoita 'ideas' nähdäksesi viimeisimmät ideat")
     print("Kirjoita 'quit' tai 'exit' lopettaaksesi istunnon")
+    print("\nMuistutusten käyttö:")
+    print("- 'lisää muistutus [tehtävä] kello [aika]'")
+    print("- 'näytä muistutukset'")
     
     while True:
         try:

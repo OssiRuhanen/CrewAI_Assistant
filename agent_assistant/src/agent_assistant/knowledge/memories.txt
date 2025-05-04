@@ -1,0 +1,6 @@
+# Conversation Memories
+# This file stores important information from conversations with the user.
+# The agent will add new memories here as it learns from interactions.
+
+# Format: [Date] - [Topic] - [Key Information]
+[2025-05-04] - Voice Interest - User mentioned an interest in voice recognition.
