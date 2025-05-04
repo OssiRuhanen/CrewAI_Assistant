@@ -18,6 +18,7 @@ from google.cloud import texttospeech
 from agent_assistant.crew import AgentAssistant
 from agent_assistant.memory import MemoryManager
 from agent_assistant.task_manager import TaskManager
+from agent_assistant.config import KNOWLEDGE_DIR
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
@@ -29,7 +30,7 @@ DEBUG = False
 
 # --- Configuration ---
 # Load API Key from .env file
-load_dotenv()
+load_dotenv(override=True)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
@@ -55,8 +56,6 @@ USE_GOOGLE_TTS = True  # Set to True to use Google TTS
 SELECTED_GOOGLE_TTS_VOICE = "fi-FI-Wavenet-A"  # Default, can be changed by user
 
 # Set up absolute paths for knowledge directory and conversation history
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-KNOWLEDGE_DIR = os.path.join(BASE_DIR, "..", "knowledge")
 CONVERSATION_HISTORY_PATH = os.path.join(KNOWLEDGE_DIR, "conversation_history.txt")
 
 # Ensure knowledge directory exists
@@ -74,8 +73,9 @@ except Exception as e:
     sys.exit(1)
 
 # Initialize memory manager and task manager
-memory_manager = MemoryManager()
-task_manager = TaskManager()
+memory_manager = MemoryManager(knowledge_dir=KNOWLEDGE_DIR)
+TASKS_FILE = os.path.join(KNOWLEDGE_DIR, "tasks.json")
+task_manager = TaskManager(storage_file=TASKS_FILE)
 
 # --- Chat History for Direct OpenAI API ---
 # Update system message for natural memory responses
@@ -145,16 +145,25 @@ def process_task_command(message: str) -> Optional[str]:
     """Process task-related commands."""
     if message.lower().startswith("lisää muistutus"):
         try:
-            # Extract time and description
+            # Extract time, description, and repeat
+            repeat = None
+            msg = message.lower()
+            if " toistuva" in msg:
+                repeat = "daily"
+                # Remove 'toistuva' from the message for parsing
+                message = message.replace(" toistuva", "")
             parts = message.split("kello")
             if len(parts) != 2:
-                return "Virheellinen muistutuksen muoto. Käytä muotoa: 'lisää muistutus [tehtävä] kello [aika]'"
+                return "Virheellinen muistutuksen muoto. Käytä muotoa: 'lisää muistutus [tehtävä] kello [aika] [toistuva]'"
             
             description = parts[0].replace("lisää muistutus", "").strip()
             time_str = parts[1].strip()
             
-            if task_manager.add_task(description, time_str):
-                return f"Muistutus lisätty: {description} kello {time_str}"
+            if task_manager.add_task(description, time_str, repeat=repeat):
+                if repeat:
+                    return f"Toistuva muistutus lisätty: {description} kello {time_str} (joka päivä)"
+                else:
+                    return f"Muistutus lisätty: {description} kello {time_str}"
             else:
                 return "Virheellinen aika. Käytä muotoa HH:MM"
         except Exception as e:
@@ -166,7 +175,8 @@ def process_task_command(message: str) -> Optional[str]:
             return "Ei aktiivisia muistutuksia."
         response = "Aktiiviset muistutukset:\n"
         for task in tasks:
-            response += f"- {task['description']} kello {task['time'].split()[1]}\n"
+            repeat_str = " (toistuva)" if task.get("repeat") == "daily" else ""
+            response += f"- {task['description']} kello {task['time'].split()[1]}{repeat_str}\n"
         return response
     
     return None
@@ -524,7 +534,7 @@ def main():
     print("Kirjoita 'debug' vaihtaaksesi debug-tilan päälle/pois")
     print("Kirjoita 'quit' tai 'exit' lopettaaksesi istunnon")
     print("\nMuistutusten käyttö:")
-    print("- 'lisää muistutus [tehtävä] kello [aika]'")
+    print("- 'lisää muistutus [tehtävä] kello [aika] [toistuva]'")
     print("- 'näytä muistutukset'")
     
     while True:

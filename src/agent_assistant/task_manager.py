@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 class TaskManager:
@@ -56,7 +56,7 @@ class TaskManager:
         
         return None
 
-    def add_task(self, description: str, time_str: str) -> bool:
+    def add_task(self, description: str, time_str: str, repeat: Optional[str] = None) -> bool:
         """Add a new task with description and time."""
         try:
             # Parse the time string
@@ -76,6 +76,8 @@ class TaskManager:
                 "time": task_time.strftime("%Y-%m-%d %H:%M"),
                 "status": "pending"
             }
+            if repeat:
+                new_task["repeat"] = repeat
             
             self.tasks.append(new_task)
             self._save_tasks()
@@ -102,7 +104,14 @@ class TaskManager:
         """Mark a task as done by its description."""
         for task in self.tasks:
             if task["description"] == description and task["status"] == "pending":
-                task["status"] = "done"
+                if task.get("repeat") == "daily":
+                    # Päivitä aika seuraavalle päivälle
+                    task_time = datetime.strptime(task["time"], "%Y-%m-%d %H:%M")
+                    next_time = task_time + timedelta(days=1)
+                    task["time"] = next_time.strftime("%Y-%m-%d %H:%M")
+                    # status pysyy 'pending'
+                else:
+                    task["status"] = "done"
                 self._save_tasks()
                 return True
         return False

@@ -4,6 +4,7 @@ from crewai.knowledge.knowledge import Knowledge
 from crewai.knowledge.source.text_file_knowledge_source import TextFileKnowledgeSource
 from agent_assistant.tools.memory_tool import MemoryTool
 import os
+from agent_assistant.config import KNOWLEDGE_DIR as DEFAULT_KNOWLEDGE_DIR
 
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
@@ -39,9 +40,10 @@ class AgentAssistant():
         )
 
     @crew
-    def crew(self) -> Crew:
+    def crew(self, knowledge_dir: str = None) -> Crew:
         """Creates the AgentAssistant crew"""
-        knowledge_dir = "knowledge"
+        if knowledge_dir is None:
+            knowledge_dir = DEFAULT_KNOWLEDGE_DIR
         txt_files = [f for f in os.listdir(knowledge_dir) if f.endswith(".txt")]
         knowledge = Knowledge(
             collection_name="default",

@@ -1,5 +1,0 @@
-# Conversation History
-# This file stores a log of conversations with the user.
-# Each conversation is timestamped and includes both user and assistant messages.
-
-# Format: [Date Time] - [Speaker] - [Message]

@@ -2,6 +2,7 @@ from crewai.tools import BaseTool
 from typing import Type, List, Optional
 from pydantic import BaseModel, Field
 from agent_assistant.memory import MemoryManager
+from agent_assistant.config import KNOWLEDGE_DIR
 
 class MemoryToolInput(BaseModel):
     """Input schema for MemoryTool."""
@@ -33,7 +34,7 @@ class MemoryTool(BaseTool):
             str: Result of the action
         """
         # Create a memory manager instance for this run
-        memory_manager = MemoryManager()
+        memory_manager = MemoryManager(knowledge_dir=KNOWLEDGE_DIR)
         
         if action == "add_memory":
             if not topic or not content:

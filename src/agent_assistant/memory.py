@@ -1,6 +1,7 @@
 import os
 import datetime
 from pathlib import Path
+import traceback
 
 class MemoryManager:
     """
@@ -8,13 +9,18 @@ class MemoryManager:
     important memories, and user ideas.
     """
     
-    def __init__(self, knowledge_dir="knowledge"):
+    def __init__(self, knowledge_dir):
         """
         Initialize the memory manager with paths to memory files.
         
         Args:
             knowledge_dir (str): Directory containing knowledge files
         """
+        print(f"[DEBUG] MemoryManager instantiated with knowledge_dir: {knowledge_dir}")
+        traceback.print_stack()
+        if not os.path.isabs(knowledge_dir):
+            import warnings
+            warnings.warn(f"[MemoryManager] knowledge_dir is not absolute: {knowledge_dir}. This may cause files to be created in the wrong location.")
         self.knowledge_dir = knowledge_dir
         self.memories_file = os.path.join(knowledge_dir, "memories.txt")
         self.ideas_file = os.path.join(knowledge_dir, "ideas.txt")

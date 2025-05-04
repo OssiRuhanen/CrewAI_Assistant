@@ -59,3 +59,5 @@ knowledge/conversation_history.txt
 knowledge/ideas.txt
 knowledge/memories.txt
 agent_assistant/nexusbridge-f31ca052f9ee.json
+knowledge/tasks.json
+nexusbridge-f31ca052f9ee.json

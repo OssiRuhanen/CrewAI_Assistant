@@ -1,5 +1,0 @@
-# User Ideas
-# This file stores ideas and concepts shared by the user.
-# Add new ideas with a timestamp and brief description.
-
-# Format: [Date] - [Idea Title] - [Description]
