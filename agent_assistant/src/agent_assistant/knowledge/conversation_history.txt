@@ -3,31 +3,3 @@
 # Each conversation is timestamped and includes both user and assistant messages.
 
 # Format: [Date Time] - [Speaker] - [Message]
-[2025-05-04 15:58] - User - voice
-[2025-05-04 15:58] - Assistant - Voice recognition is a technology that allows a device to identify and respond to spoken language. It's commonly used in applications such as virtual assistants (like Siri or Google Assistant), transcription services, and voice-activated controls. If you're interested in implementing voice recognition in your projects, popular libraries include `speech_recognition`, `pyaudio`, and `Google Speech API`. Let me know if you have specific questions or if there's a particular aspect of voice technology you'd like to learn more about!
-[2025-05-04 15:58] - User - you
-[2025-05-04 15:58] - Assistant - Hello! How can I assist you today?
-[2025-05-04 15:58] - User - you
-[2025-05-04 15:58] - Assistant - Hello! How can I assist you today?
-[2025-05-04 15:58] - User - you
-[2025-05-04 15:58] - Assistant - Hello! How can I assist you today?
-[2025-05-04 15:58] - User - you
-[2025-05-04 15:58] - Assistant - Hello! How can I assist you today?
-[2025-05-04 15:59] - User - you
-[2025-05-04 15:59] - Assistant - Hello! How can I help you today?
-[2025-05-04 15:59] - User - you
-[2025-05-04 15:59] - Assistant - Hello! How can I assist you today?
-[2025-05-04 16:00] - User - you
-[2025-05-04 16:00] - Assistant - Hello! How can I assist you today?
-[2025-05-04 16:00] - User - you
-[2025-05-04 16:00] - Assistant - Hello! How can I assist you today?
-[2025-05-04 16:02] - User - τους τεστούς.
-[2025-05-04 16:02] - Assistant - Anteeksi, en ymmärtänyt kysymystäsi. Voitko selventää, millaisia ​​tietoja tai apua tarvitset?
-[2025-05-04 16:02] - User - olla vähän äänevoimakkuus liian paljon.
-[2025-05-04 16:02] - Assistant - Ymmärrän. Voit säätää äänenvoimakkuutta laitteestasi. Yleensä äänenvoimakkuuden säätö löytyy laitteen ääniasetuksista tai fyysisestä äänenvoimakkuuden säätimestä. Jos tarvitset lisäohjeita, kerro minulle laitteesi tyyppi, niin voin auttaa tarkemmin.
-[2025-05-04 16:04] - User - Koitetaan uudestaan. Lisää muistutus, testimuistutus, kello 15.00.
-[2025-05-04 16:04] - Assistant - Selvä! Olet nyt asettanut muistutuksen testausta varten kello 15.00.
-[2025-05-04 16:05] - User - Kokeillaan sitten näytämuistutukset.
-[2025-05-04 16:05] - Assistant - Anteeksi, mutta en valitettavasti tue tällä hetkellä muistutusten näyttämistä. Voinko auttaa sinua jollain muulla tavalla?
-[2025-05-04 16:09] - User - Noin, lisää muistutus. Punttisali kello 16.35.
-[2025-05-04 16:09] - Assistant - Selvä, muistutus lisätty! Punttisali kello 16.35.
