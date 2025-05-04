@@ -11,7 +11,6 @@ import io
 import soundfile as sf
 import time
 from dotenv import load_dotenv
-import playsound
 import threading
 from typing import Optional
 from google.cloud import texttospeech
@@ -25,6 +24,9 @@ warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 # Reset audio settings and use MME backend
 sd.default.reset()
 
+# Add a DEBUG flag at the top of the file
+DEBUG = False
+
 # --- Configuration ---
 # Load API Key from .env file
 load_dotenv()
@@ -36,7 +38,7 @@ if not OPENAI_API_KEY:
     sys.exit(1)
 
 # Models (adjust as needed)
-CHAT_MODEL = "gpt-3.5-turbo"  # Or "gpt-4", "gpt-4o", etc.
+CHAT_MODEL = "gpt-4-turbo"  # Or "gpt-4", "gpt-4o", etc.
 TTS_MODEL = "tts-1"          # tts-1 or tts-1-hd
 TTS_VOICE = "alloy"          # Options: alloy, echo, fable, onyx, nova, shimmer
 
@@ -52,6 +54,18 @@ PRE_RECORD_BUFFER_SECONDS = 0.5  # Buffer to capture the beginning of speech
 USE_GOOGLE_TTS = True  # Set to True to use Google TTS
 SELECTED_GOOGLE_TTS_VOICE = "fi-FI-Wavenet-A"  # Default, can be changed by user
 
+# Set up absolute paths for knowledge directory and conversation history
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+KNOWLEDGE_DIR = os.path.join(BASE_DIR, "..", "knowledge")
+CONVERSATION_HISTORY_PATH = os.path.join(KNOWLEDGE_DIR, "conversation_history.txt")
+
+# Ensure knowledge directory exists
+os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
+
+# Truncate conversation_history.txt at session start
+with open(CONVERSATION_HISTORY_PATH, "w", encoding="utf-8") as f:
+    f.write("# Conversation History\n# This file stores a log of conversations with the user.\n# Each conversation is timestamped and includes both user and assistant messages.\n\n# Format: [Date Time] - [Speaker] - [Message]\n")
+
 # --- Initialization ---
 try:
     openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
@@ -64,10 +78,13 @@ memory_manager = MemoryManager()
 task_manager = TaskManager()
 
 # --- Chat History for Direct OpenAI API ---
+# Update system message for natural memory responses
 chat_history = [
-    {"role": "system", "content": """Olet avulias ja ytimekäs ääniavustaja. Vastaa selkeästi ja luonnollisesti.
-    Jos käyttäjä pyytää edistyneitä ominaisuuksia tai työkaluja, ehdottaa CrewAI-tilan käyttöä sanomalla 'käytä agenttia' seuraavassa viestissään.
-    """}
+    {"role": "system", "content": """
+Olet avulias ja ytimekäs ääniavustaja. Vastaa selkeästi ja luonnollisesti.
+Jos käyttäjä pyytää sinua kirjaamaan jotain muistiin (esim. 'kirjaa ylös', 'muista tämä'), vastaa ystävällisesti tyyliin 'Selvä, merkitsen tämän muistiin!' ja jatka keskustelua normaalisti. Älä kerro käyttäjälle, ettet voi oikeasti tallentaa tietoja.
+Jos käyttäjä pyytää edistyneitä ominaisuuksia tai työkaluja, ehdota CrewAI-tilan käyttöä sanomalla 'käytä agenttia' seuraavassa viestissään.
+"""}
 ]
 
 # This main file is intended to be a way for you to run your
@@ -415,7 +432,8 @@ def voice_chat():
             transcription = transcribe_audio(audio_data[0], audio_data[1])
             
             if not transcription:
-                print("Ei kuultua ääntä. Yritä uudelleen.")
+                if DEBUG:
+                    print("Ei kuultua ääntä. Yritä uudelleen.")
                 continue
                 
             print(f"Sinä: {transcription}")
@@ -491,6 +509,7 @@ def list_google_finnish_voices():
         print(f"Virhe äänien listauksessa: {e}")
 
 def main():
+    global DEBUG
     # Start the task checking thread
     task_thread = threading.Thread(target=check_upcoming_tasks, daemon=True)
     task_thread.start()
@@ -502,6 +521,7 @@ def main():
     print("Kirjoita 'memories' nähdäksesi viimeisimmät muistot")
     print("Kirjoita 'ideas' nähdäksesi viimeisimmät ideat")
     print("Kirjoita 'voices' nähdäksesi käytettävissä olevat Google TTS -äänet")
+    print("Kirjoita 'debug' vaihtaaksesi debug-tilan päälle/pois")
     print("Kirjoita 'quit' tai 'exit' lopettaaksesi istunnon")
     print("\nMuistutusten käyttö:")
     print("- 'lisää muistutus [tehtävä] kello [aika]'")
@@ -509,7 +529,7 @@ def main():
     
     while True:
         try:
-            command = input("\nSyötä komento (voice/text/memories/ideas/voices/quit): ").strip().lower()
+            command = input("\nSyötä komento (voice/text/memories/ideas/voices/debug/quit): ").strip().lower()
             
             if command in ["quit", "exit"]:
                 print("Näkemiin!")
@@ -536,8 +556,11 @@ def main():
                     print("Ei vielä ideoita.")
             elif command == "voices":
                 list_google_finnish_voices()
+            elif command == "debug":
+                DEBUG = not DEBUG
+                print(f"Debug-tila {'päällä' if DEBUG else 'pois päältä'}.")
             else:
-                print("Virheellinen komento. Kirjoita 'voice' äänikeskustelua varten, 'text' tekstikeskustelua varten, 'memories' muistojen katsomista varten, 'ideas' ideoiden katsomista varten, 'voices' äänten listaukseen tai 'quit' lopettaaksesi.")
+                print("Virheellinen komento. Kirjoita 'voice' äänikeskustelua varten, 'text' tekstikeskustelua varten, 'memories' muistojen katsomista varten, 'ideas' ideoiden katsomista varten, 'voices' äänten listaukseen, 'debug' debug-tilan vaihtoon tai 'quit' lopettaaksesi.")
                 
         except KeyboardInterrupt:
             print("\nKäyttäjän keskeyttämä. Poistutaan.")

@@ -77,6 +77,38 @@
 - Add timestamps to all entries
 - Include metadata (context, importance, category)
 
+### Memory System (Recent and Planned)
+- [x] All conversations are logged per session in `conversation_history.txt`.
+- [x] User can ask the agent (in agent mode) to review conversation history and extract important facts to memory (memories.txt) or ideas (ideas.txt).
+- [x] System message instructs the assistant to respond naturally to memory requests in direct chat mode (e.g., "Sure, I'll remember that!").
+- [ ] (Planned) Ability to mark "remember this" messages for easier extraction by the agent later.
+- [ ] (Planned) Automatic memory extraction process that reviews conversation history at the end of the day and updates memories/ideas.
+
+### Workout and Structured Data Logging
+- [x] Free-form workout notes can be logged to `memories.txt`.
+- [ ] (Planned) Separate file (e.g., `workouts.txt` or `workouts.json`) for structured workout data and analytics.
+
+### Text-to-Speech (TTS)
+- [x] Google Cloud TTS support with voice selection directly from the app.
+- [x] Ability to test and preview different voices with a sample sentence.
+- [ ] (Planned) Option to use other TTS services (e.g., Coqui TTS) easily.
+
+### User Experience & File Management
+- [x] `.gitignore` updated to exclude knowledge directory files and private files.
+- [x] `conversation_history.txt` only logs the current session's messages.
+- [x] All file paths are now absolute and based on the script location, so files are always created in the correct place.
+- [ ] (Planned) Ability to filter and display only certain types of memories (e.g., only workouts, only ideas).
+
+### Agent & Direct Mode
+- [x] User can switch between agent mode (CrewAI) and direct mode (OpenAI API).
+- [x] In agent mode, the model can use the memory tool and extract information from history.
+- [x] In direct mode, memory requests are handled via system message for a natural experience.
+
+### General & Future Ideas
+- [ ] (Planned) User profile file for persistent user data (e.g., name, goals, preferences).
+- [ ] (Planned) Automatic daily/periodic summary generation (e.g., "daily notes").
+- [ ] (Planned) Agent can proactively ask the user if certain information should be remembered based on conversation context.
+
 ## 7. Task & Schedule Management
 
 ### Core Features
