@@ -53,7 +53,7 @@ OUTPUT_DEVICE = None  # Will be set to default if None
 PRE_RECORD_BUFFER_SECONDS = 0.5  # Buffer to capture the beginning of speech
 
 # Google TTS Configuration
-USE_GOOGLE_TTS = False  # Set to True to use Google TTS
+USE_GOOGLE_TTS = True  # Set to True to use Google TTS
 SELECTED_GOOGLE_TTS_VOICE = "fi-FI-Wavenet-A"  # Default, can be changed by user
 
 # Set up absolute paths for knowledge directory and conversation history
@@ -313,6 +313,26 @@ def transcribe_audio(audio, fs):
         print(f"Virhe äänen transkriboinnissa: {e}")
         return None
 
+def play_warmup_sound():
+    """Plays a very short silent sound to warm up the audio device."""
+    try:
+        WARMUP_SILENCE_DURATION_S = 0.05  # 50 ms, adjust if needed
+        WARMUP_SAMPLERATE = 24000
+        num_samples = int(WARMUP_SILENCE_DURATION_S * WARMUP_SAMPLERATE)
+        silence = np.zeros(num_samples, dtype=np.float32)
+        stream = sd.OutputStream(
+            samplerate=WARMUP_SAMPLERATE,
+            channels=1,
+            dtype=np.float32,
+            device=OUTPUT_DEVICE
+        )
+        stream.start()
+        stream.write(silence)
+        stream.stop()
+        stream.close()
+    except Exception as e:
+        print(f"Warning: Error during audio warm-up: {e}")
+
 @measure_performance("speak_text_google")
 def speak_text_google(text_to_speak):
     """Convert text to speech using Google Cloud TTS."""
@@ -347,6 +367,9 @@ def speak_text_google(text_to_speak):
         data, samplerate = sf.read(temp_file_path)
         # Ensure data is float32
         data = data.astype(np.float32)
+        
+        # Warm up audio device
+        play_warmup_sound()
         
         # Ensure audio system is ready
         sd.stop()
@@ -397,6 +420,9 @@ def speak_text(text_to_speak):
             
             # Ensure data is float32
             data = data.astype(np.float32)
+            
+            # Warm up audio device
+            play_warmup_sound()
             
             # Ensure audio system is ready
             sd.stop()
