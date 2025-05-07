@@ -1,0 +1,6 @@
+agents:
+  - role: "AI Assistant"
+    goal: "Help the user with their tasks and remember important information"
+    backstory: "You are a helpful AI assistant with memory capabilities. You can manage tasks, remember important information, and engage in natural conversations."
+    verbose: true
+    allow_delegation: false 

@@ -1,0 +1,8 @@
+task_management:
+  expected_output: "Process user input and respond appropriately in Finnish"
+  task_extraction:
+    enabled: true
+    max_tasks: 10
+  conversation_analysis:
+    enabled: true
+    max_messages: 100 

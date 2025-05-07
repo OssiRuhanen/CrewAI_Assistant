@@ -1,4 +1,131 @@
-# CrewAI Assistant – Project Plans
+# Agent Assistant Development Plans
+
+## Current Features
+
+### Voice Interface
+- Voice input using Whisper API
+- Voice output using Google TTS
+- Finnish language support
+- Multiple voice options for Google TTS
+- Silence detection for voice input
+- Audio device warmup to prevent initial delays
+
+### Chat Modes
+- Voice chat mode
+- Text chat mode
+- Debug mode for development
+- Voice selection interface
+
+### Agent System
+- CrewAI integration for advanced task management
+- Conversation history analysis
+- Task extraction and management
+- Memory management system
+- Multiple agent roles (AI Assistant, Task Manager)
+
+### Task Management
+- Task creation with specific times
+- Task creation without specific times
+- Recurring tasks (daily)
+- Task notifications
+- Task status tracking
+- Task history
+
+### Command System
+- Direct agent mode switching ("agentti", "agentit", "agent")
+- Direct agent execution ("aja agentit", "ajaa agentit", "aja-agentit")
+- Task commands ("lisää muistutus", "näytä muistutukset")
+- Mode switching commands ("ääni", "puhe", "speech")
+
+## Planned Features
+
+### Voice Interface Improvements
+- [ ] Better noise handling
+- [ ] Voice activity detection optimization
+- [ ] Multiple language support
+- [ ] Voice command customization
+- [ ] Voice feedback for errors
+
+### Agent System Enhancements
+- [ ] More specialized agent roles
+- [ ] Agent collaboration improvements
+- [ ] Better task prioritization
+- [ ] Learning from user preferences
+- [ ] Context-aware responses
+
+### Task Management Improvements
+- [ ] Task categories
+- [ ] Task dependencies
+- [ ] Task reminders with different priorities
+- [ ] Task completion tracking
+- [ ] Task statistics and reporting
+
+### User Interface
+- [ ] Web interface
+- [ ] Mobile app
+- [ ] Desktop notifications
+- [ ] Calendar integration
+- [ ] Task visualization
+
+### Security and Privacy
+- [ ] End-to-end encryption
+- [ ] Local voice processing option
+- [ ] Data backup and restore
+- [ ] User authentication
+- [ ] Privacy settings
+
+### Integration
+- [ ] Calendar services (Google Calendar, Outlook)
+- [ ] Task management services (Todoist, Trello)
+- [ ] Note-taking services (Evernote, OneNote)
+- [ ] Smart home devices
+- [ ] Weather services
+
+## Technical Improvements
+
+### Performance
+- [ ] Optimize audio processing
+- [ ] Reduce API calls
+- [ ] Improve response times
+- [ ] Better memory management
+- [ ] Caching system
+
+### Code Quality
+- [ ] Better error handling
+- [ ] More comprehensive testing
+- [ ] Code documentation
+- [ ] Type hints
+- [ ] Code refactoring
+
+### Development Tools
+- [ ] Development environment setup script
+- [ ] Testing framework
+- [ ] CI/CD pipeline
+- [ ] Performance monitoring
+- [ ] Logging system
+
+## Future Considerations
+
+### AI Improvements
+- [ ] Better context understanding
+- [ ] More natural conversations
+- [ ] Personality customization
+- [ ] Learning from interactions
+- [ ] Multi-agent coordination
+
+### User Experience
+- [ ] Personalized responses
+- [ ] Adaptive interface
+- [ ] Accessibility features
+- [ ] Offline capabilities
+- [ ] Cross-platform support
+
+### Business Features
+- [ ] Team collaboration
+- [ ] Project management
+- [ ] Resource allocation
+- [ ] Progress tracking
+- [ ] Reporting tools
 
 ## 1. Vision & Purpose
 
@@ -252,13 +379,17 @@
 ## Bugs & Improvements
 
 ### Keskusteluhistorian hallinta
-- [ ] (Planned) Keskusteluhistorian tallennus abstrahoidaan yhteen funktioon, jota käytetään kaikissa moodeissa (voice, text, CrewAI, OpenAI), jotta historia pysyy aina ajan tasalla ja koodi pysyy DRY-periaatteen mukaisena.
+- [x] (Planned) Keskusteluhistorian tallennus abstrahoidaan yhteen funktioon, jota käytetään kaikissa moodeissa (voice, text, CrewAI, OpenAI), jotta historia pysyy aina ajan tasalla ja koodi pysyy DRY-periaatteen mukaisena.
 
 ### Voice-tilan korjaukset
-- [ ] (Bug) Voice-tilassa keskusteluhistoria ei tallennu conversation_history.txt-tiedostoon – korjataan loggaus niin, että myös voice-tilan normaalit keskustelut tallentuvat kuten CrewAI-tilassa.
+- [x] (Bug) Voice-tilassa keskusteluhistoria ei tallennu conversation_history.txt-tiedostoon – korjataan loggaus niin, että myös voice-tilan normaalit keskustelut tallentuvat kuten CrewAI-tilassa.
+- [x] (Improvement) Käyttäjä voi nyt keskeyttää puheavustajan puheen painamalla Ctrl+C (KeyboardInterrupt).
+- [x] (Improvement) TTS-leikkautumisen estämiseksi lisätty play_warmup_sound()-funktio, joka soittaa lyhyen hiljaisen äänen ennen varsinaista puhetta.
+- [x] (Improvement) TTS-toiston datatyypin yhteensopivuus korjattu (float32).
+- [x] (Improvement) TTS-toistosta poistettu turhat viiveet (delays).
 
 ### Virheiden käsittely
-- [ ] (Bug) Konsolissa esiintyy virheilmoituksia työkalujen ja tiedostojen käsittelyssä – lisätään virheenkäsittelyä ja tarkistetaan argumenttien tyypit sekä tiedostopolut.
+- [x] (Bug) Konsolissa esiintyy virheilmoituksia työkalujen ja tiedostojen käsittelyssä – lisätään virheenkäsittelyä ja tarkistetaan argumenttien tyypit sekä tiedostopolut.
 
 ### Suorituskyvyn optimointi
 - [ ] (Planned) Lisää debug-tilan lokituksiin viiveiden (latency) mittaus: lokitetaan aika viestin lähettämisestä vastauksen alkuun sekä mahdollisuuksien mukaan eri vaiheiden (esim. API-kutsu, agentin prosessointi) kestot.

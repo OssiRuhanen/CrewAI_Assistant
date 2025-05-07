@@ -14,12 +14,16 @@ from dotenv import load_dotenv
 import threading
 from typing import Optional
 from google.cloud import texttospeech
-
+from crewai import Agent, Task, Crew, Process
+from agent_assistant.config import load_config
+from agent_assistant.tools.task_tools import AddTaskTool, ConversationTool
+from agent_assistant.tools.memory_tools import MemoryTool
 from agent_assistant.crew import AgentAssistant
 from agent_assistant.memory import MemoryManager
 from agent_assistant.task_manager import TaskManager
-from agent_assistant.config import KNOWLEDGE_DIR
+from agent_assistant.config import KNOWLEDGE_DIR, CONFIG_DIR
 from agent_assistant.performance import measure_performance, log_performance_metrics
+from datetime import datetime
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
@@ -86,6 +90,7 @@ chat_history = [
 Olet avulias ja ytimekäs ääniavustaja. Vastaa selkeästi ja luonnollisesti.
 Jos käyttäjä pyytää sinua kirjaamaan jotain muistiin (esim. 'kirjaa ylös', 'muista tämä'), vastaa ystävällisesti tyyliin 'Selvä, merkitsen tämän muistiin!' ja jatka keskustelua normaalisti. Älä kerro käyttäjälle, ettet voi oikeasti tallentaa tietoja.
 Jos käyttäjä pyytää edistyneitä ominaisuuksia tai työkaluja, ehdota CrewAI-tilan käyttöä sanomalla 'käytä agenttia' seuraavassa viestissään.
+Älä muistuta käyttäjää asettamaan muistutuksia laitteelleen, sillä ne käsitellään myöhemmin CrewAI:n kautta.
 """}
 ]
 
@@ -401,6 +406,8 @@ def speak_text(text_to_speak):
     """Speaks text using the selected TTS engine."""
     if not text_to_speak:
         return
+    # Ensure text_to_speak is a string
+    text_to_speak = str(text_to_speak)
     if USE_GOOGLE_TTS:
         speak_text_google(text_to_speak)
     else:
@@ -466,121 +473,267 @@ def get_openai_response(current_history):
 @measure_performance("process_with_openai")
 def process_with_openai(user_message):
     """Process user message with OpenAI API."""
-    # Add user message to chat history
-    chat_history.append({"role": "user", "content": user_message})
+    # Check for agent commands first, even if they're part of a sentence
+    message_lower = user_message.lower()
     
-    # Get response from OpenAI
+    # Check for agent mode commands
+    if any(cmd in message_lower for cmd in ["agentti", "agentit", "agent"]):
+        return "AGENT_MODE"
+    
+    # Check for run agents command variations
+    if any(cmd in message_lower for cmd in ["aja agentit", "ajaa agentit", "aja-agentit"]):
+        return "RUN_AGENTS"
+    
+    # If no special commands, process normally with OpenAI
+    chat_history.append({"role": "user", "content": user_message})
     response = get_openai_response(chat_history)
     
     if response:
-        # Add assistant response to chat history
         chat_history.append({"role": "assistant", "content": response})
-        
-        # Extract memories from the conversation
         memory_manager.extract_memory_from_conversation(user_message, response)
-        
         return response
     else:
         return "Valitettavasti en pystynyt luomaan vastausta. Yritä uudelleen."
 
-@measure_performance("process_with_crewai")
-def process_with_crewai(user_message):
-    """Process user message with CrewAI for advanced capabilities."""
-    try:
-        # Initialize CrewAI
-        crew = AgentAssistant().crew()
-        
-        # Process with CrewAI
-        result = crew.kickoff(inputs={"user_message": user_message})
-        
-        # Extract memories from the conversation
-        memory_manager.extract_memory_from_conversation(user_message, result)
-        
-        return result
-    except Exception as e:
-        print(f"CrewAI virhe: {str(e)}")
-        return "Valitettavasti CrewAI-tila ei toiminut. Yritä uudelleen tai palaa suoraan OpenAI-tilaan sanomalla 'käytä puhetta'."
-
-@measure_performance("voice_chat")
-def voice_chat():
-    """Voice chat function that uses OpenAI API for quick responses by default."""
-    print("Puhechat käynnissä. Puhu nyt...")
-    print("Sano 'käytä agenttia' käyttääksesi CrewAI-tilaa tai 'käytä puhetta' palataksesi suoraan OpenAI-tilaan.")
+def get_tools():
+    """Initialize and return all tools."""
+    tools = []
     
-    # Default to direct mode
-    use_crewai = False
+    # Initialize task tools
+    task_tool = AddTaskTool()
+    tools.append(task_tool)
+    
+    # Initialize conversation tool
+    conversation_tool = ConversationTool(KNOWLEDGE_DIR)
+    tools.append(conversation_tool)
+    
+    # Initialize memory tool
+    memory_tool = MemoryTool()
+    tools.append(memory_tool)
+    
+    return tools
+
+@measure_performance("process_with_crewai")
+def process_with_crewai(user_input: str, agents: list, tasks_config: dict) -> str:
+    """Process user input using CrewAI agents."""
+    # Check for special commands first
+    if any(cmd in user_input.lower() for cmd in ["aja agentit", "ajaa agentit", "aja-agentit"]):
+        # Create a task to review conversation history and add tasks
+        task = Task(
+            description="""Käy läpi keskusteluhistoria ja lisää KAIKKI tehtävät task_manageriin.
+            Tärkeää:
+            1. Käytä AddTaskTool-työkalua JOKAISEN tehtävän lisäämiseen erikseen
+            2. Etsi kaikki tehtävät keskustelusta, myös ne joilla ei ole tarkkaa aikaa
+            3. Lisää jokainen tehtävä erikseen AddTaskTool-työkalulla
+            4. Jos tehtävällä on aika, lisää se time_str-kenttään
+            5. Jos tehtävällä ei ole aikaa, jätä time_str tyhjäksi ("")
+            
+            Esimerkkejä:
+            1. Jos keskustelussa on "Herätys kello 8:00":
+               - description: "Herätys"
+               - time_str: "8:00"
+               - repeat: ""
+            
+            2. Jos keskustelussa on "Aamurutiinit" ilman aikaa:
+               - description: "Aamurutiinit"
+               - time_str: ""
+               - repeat: ""
+            
+            Toista tämä prosessi KAIKILLE tehtäville keskusteluhistoriasta.""",
+            expected_output="Keskusteluhistorian analyysi ja kaikki tehtävät lisätty task_manageriin.",
+            agent=agents[0]
+        )
+    else:
+        # Create a task for normal user input
+        task = Task(
+            description=user_input,
+            expected_output=tasks_config["task_management"]["expected_output"],
+            agent=agents[0]
+        )
+    
+    # Create and run the crew
+    crew = Crew(
+        agents=agents,
+        tasks=[task],
+        verbose=False,
+        process=Process.sequential
+    )
+    
+    result = crew.kickoff()
+    # Ensure result is a string
+    if not isinstance(result, str):
+        result = str(result)
+    return result
+
+def voice_chat():
+    """Handle voice chat mode."""
+    print("Aloitetaan äänikeskustelu...")
+    print("Sano 'lopeta' kun haluat lopettaa.")
+    
+    # Initialize task and memory managers
+    task_manager = TaskManager()
+    memory_manager = MemoryManager(knowledge_dir=KNOWLEDGE_DIR)
+    
+    # Track if we're in agent mode
+    use_agent = False
+    
+    # Log the start of conversation
+    with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
+        f.write(f"\n# Keskustelu alkoi: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     
     while True:
-        try:
-            # Record audio
-            audio_data = record_audio_with_silence_detection()
+        # Get voice input
+        audio_data = record_audio_with_silence_detection()
+        if audio_data[0] is None:
+            continue
             
-            # Check if audio was recorded
-            if audio_data[0] is None:
-                if DEBUG:
-                    print("Ei kuultua ääntä. Yritä uudelleen.")
-                continue
+        user_input = transcribe_audio(audio_data[0], audio_data[1])
+        if not user_input:
+            continue
             
-            # Transcribe audio to text
-            transcription = transcribe_audio(audio_data[0], audio_data[1])
-            
-            if not transcription:
-                if DEBUG:
-                    print("Ei kuultua ääntä tai transkribointi epäonnistui. Yritä uudelleen.")
-                continue
-                
-            print(f"Sinä: {transcription}")
-            
-            # Log user message to conversation history
-            memory_manager.log_conversation("User", transcription)
-            
-            # Check for mode switching commands
-            if "käytä agenttia" in transcription.lower():
-                use_crewai = True
-                response = "Nyt käytän CrewAI-tilaa. Tämä antaa minulle pääsyn edistyneisiin ominaisuuksiin ja työkaluihin."
-                print(f"Avustaja: {response}")
-                speak_text(response)
-                memory_manager.log_conversation("Assistant", response)
-                continue
-                
-            elif "käytä puhetta" in transcription.lower():
-                use_crewai = False
-                response = "Nyt käytän suoraa OpenAI-tilaa nopeampien vastausten saamiseksi."
-                print(f"Avustaja: {response}")
-                speak_text(response)
-                memory_manager.log_conversation("Assistant", response)
-                continue
-            
-            # Check for task commands first
-            task_response = process_task_command(transcription)
-            if task_response:
-                print(f"Avustaja: {task_response}")
-                speak_text(task_response)
-                memory_manager.log_conversation("Assistant", task_response)
-                continue
-            
-            # Process based on mode
-            if use_crewai:
-                # Use CrewAI for processing
-                response = process_with_crewai(transcription)
-            else:
-                # Use direct OpenAI API for faster responses
-                response = process_with_openai(transcription)
-            
-            print(f"Avustaja: {response}")
-            
-            # Log assistant response to conversation history
-            memory_manager.log_conversation("Assistant", response)
-            
-            # Convert response to speech
-            speak_text(response)
-            
-        except KeyboardInterrupt:
-            print("\nPuhechat päättyy...")
+        print(f"Sinä: {user_input}")
+        
+        # Log user input
+        with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
+            f.write(f"Käyttäjä: {user_input}\n")
+        
+        # Check for exit command
+        if user_input.lower() in ["lopeta", "exit", "quit"]:
+            print("Lopetetaan äänikeskustelu...")
             break
-        except Exception as e:
-            print(f"Virhe: {str(e)}")
-            print("Yritä uudelleen.")
+            
+        # Check for mode switch command
+        if user_input.lower() in ["puhe", "speech"]:
+            print("Siirrytään puhemoodiin...")
+            return "speech"
+        
+        # Process input
+        if use_agent:
+            # Process with CrewAI
+            result = process_with_crewai(user_input, agents, tasks_config)
+        else:
+            # Process with OpenAI
+            result = process_with_openai(user_input)
+            
+            # Check for special commands from OpenAI processing
+            if result == "AGENT_MODE":
+                use_agent = True
+                print("Siirrytään agenttitilaan...")
+                # Initialize CrewAI
+                agents, tasks_config = setup_crewai_agents()
+                result = "Olen nyt agenttitilassa. Voit pyytää minua tekemään tehtäviä tai analysoimaan keskusteluhistoriaa."
+            elif result == "RUN_AGENTS":
+                if not use_agent:
+                    use_agent = True
+                    agents, tasks_config = setup_crewai_agents()
+                print("Käydään läpi keskusteluhistoriaa ja päivitetään tehtäviä...")
+                result = process_with_crewai(
+                    "Käy läpi keskusteluhistoria ja päivitä tehtävät sen perusteella.",
+                    agents,
+                    tasks_config
+                )
+        
+        print(f"Assistentti: {result}")
+        
+        # Log assistant response
+        with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
+            f.write(f"Assistentti: {result}\n")
+        
+        # Speak the response
+        speak_text(result)
+    
+    return None
+
+def text_chat():
+    """Handle text chat mode."""
+    print("Aloitetaan tekstikeskustelu...")
+    print("Kirjoita 'lopeta' kun haluat lopettaa.")
+    
+    # Initialize task and memory managers
+    task_manager = TaskManager()
+    memory_manager = MemoryManager(knowledge_dir=KNOWLEDGE_DIR)
+    
+    # Track if we're in agent mode
+    use_agent = False
+    
+    # Log the start of conversation
+    with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
+        f.write(f"\n# Keskustelu alkoi: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    
+    while True:
+        # Get text input
+        user_input = input("Sinä: ").strip()
+        if not user_input:
+            continue
+        
+        # Log user input
+        with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
+            f.write(f"Käyttäjä: {user_input}\n")
+        
+        # Check for exit command
+        if user_input.lower() in ["lopeta", "exit", "quit"]:
+            print("Lopetetaan tekstikeskustelu...")
+            break
+            
+        # Check for mode switch command
+        if user_input.lower() in ["ääni", "voice"]:
+            print("Siirrytään äänimoodiin...")
+            return "voice"
+        
+        # Check for agent commands
+        if any(cmd in user_input.lower() for cmd in ["agentti", "agentit", "agent"]):
+            use_agent = True
+            print("Siirrytään agenttitilaan...")
+            # Initialize CrewAI
+            agents, tasks_config = setup_crewai_agents()
+            response = "Olen nyt agenttitilassa. Voit pyytää minua tekemään tehtäviä tai analysoimaan keskusteluhistoriaa."
+        elif any(cmd in user_input.lower() for cmd in ["aja agentit", "ajaa agentit", "aja-agentit"]):
+            if not use_agent:
+                use_agent = True
+                agents, tasks_config = setup_crewai_agents()
+            print("Käydään läpi keskusteluhistoriaa ja päivitetään tehtäviä...")
+            response = process_with_crewai(
+                "Käy läpi keskusteluhistoria ja päivitä tehtävät sen perusteella.",
+                agents,
+                tasks_config
+            )
+        else:
+            # Process with OpenAI
+            response = process_with_openai(user_input)
+        
+        print(f"Assistentti: {response}")
+        
+        # Log assistant response
+        with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
+            f.write(f"Assistentti: {response}\n")
+    
+    return None
+
+def setup_crewai_agents():
+    """Set up CrewAI agents with their tools and configurations."""
+    # Load agent configurations
+    agents_config = load_config(os.path.join(CONFIG_DIR, "agents.yaml"))
+    tasks_config = load_config(os.path.join(CONFIG_DIR, "tasks.yaml"))
+    
+    # Initialize tools
+    task_tool = AddTaskTool()
+    conversation_tool = ConversationTool(KNOWLEDGE_DIR)
+    memory_tool = MemoryTool()
+    
+    # Create agents with their configurations
+    agents = []
+    for agent_config in agents_config["agents"]:
+        agent = Agent(
+            role=agent_config["role"],
+            goal=agent_config["goal"],
+            backstory=agent_config["backstory"],
+            verbose=True,
+            allow_delegation=False,
+            tools=[task_tool, conversation_tool, memory_tool]
+        )
+        agents.append(agent)
+    
+    return agents, tasks_config
 
 def list_google_finnish_voices():
     """List available Finnish voices from Google Cloud TTS and allow user to select one. Play a short example after selection."""
@@ -611,76 +764,48 @@ def list_google_finnish_voices():
         print(f"Virhe äänien listauksessa: {e}")
 
 def main():
+    """Main function to run the assistant."""
     global DEBUG
-    # Start the task checking thread
-    task_thread = threading.Thread(target=check_upcoming_tasks, daemon=True)
-    task_thread.start()
     
-    print("\n🎙️ Ääniavustaja 💬")
-    print("---------------------------------------")
-    print("Kirjoita 'voice' aloittaaksesi älykkään äänikeskustelutilan")
-    print("Kirjoita 'text' aloittaaksesi tekstikeskustelutilan")
-    print("Kirjoita 'memories' nähdäksesi viimeisimmät muistot")
-    print("Kirjoita 'ideas' nähdäksesi viimeisimmät ideat")
-    print("Kirjoita 'voices' nähdäksesi käytettävissä olevat Google TTS -äänet")
-    print("Kirjoita 'debug' vaihtaaksesi debug-tilan päälle/pois")
-    print("Kirjoita 'quit' tai 'exit' lopettaaksesi istunnon")
-    print("\nMuistutusten käyttö:")
-    print("- 'lisää muistutus [tehtävä] kello [aika] [toistuva]'")
-    print("- 'näytä muistutukset'")
+    # Load environment variables
+    load_dotenv()
+    
+    # Create necessary directories if they don't exist
+    os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    
+    # Initialize conversation history file if it doesn't exist
+    conversation_file = os.path.join(KNOWLEDGE_DIR, "conversation_history.txt")
+    if not os.path.exists(conversation_file):
+        with open(conversation_file, "w", encoding="utf-8") as f:
+            f.write("# Keskusteluhistoria\n\n")
     
     while True:
-        try:
-            command = input("\nSyötä komento (voice/text/memories/ideas/voices/debug/quit): ").strip().lower()
-            
-            if command in ["quit", "exit"]:
-                print("Näkemiin!")
-                # Log final performance metrics
-                log_performance_metrics()
-                break
-            elif command == "voice":
-                voice_chat()
-            elif command == "text":
-                chat()
-            elif command == "memories":
-                memories = memory_manager.get_recent_memories(10)
-                if memories:
-                    print("\n=== Viimeisimmät muistot ===")
-                    for memory in memories:
-                        print(memory)
-                else:
-                    print("Ei vielä muistoja.")
-            elif command == "ideas":
-                ideas = memory_manager.get_recent_ideas(10)
-                if ideas:
-                    print("\n=== Viimeisimmät ideat ===")
-                    for idea in ideas:
-                        print(idea)
-                else:
-                    print("Ei vielä ideoita.")
-            elif command == "voices":
-                list_google_finnish_voices()
-            elif command == "debug":
-                DEBUG = not DEBUG
-                print(f"Debug-tila {'päällä' if DEBUG else 'pois päältä'}.")
-            else:
-                print("Virheellinen komento. Kirjoita 'voice' äänikeskustelua varten, 'text' tekstikeskustelua varten, 'memories' muistojen katsomista varten, 'ideas' ideoiden katsomista varten, 'voices' äänten listaukseen, 'debug' debug-tilan vaihtoon tai 'quit' lopettaaksesi.")
-                
-        except KeyboardInterrupt:
-            print("\nKäyttäjän keskeyttämä. Poistutaan.")
-            # Log final performance metrics
-            log_performance_metrics()
+        print("\n🎙️ Ääniavustaja 💬")
+        print("---------------------------------------")
+        print("Valitse toiminto:")
+        print("1. Äänikeskustelu")
+        print("2. Tekstikeskustelu")
+        print("3. Debug-tila")
+        print("4. Valitse ääni")
+        print("5. Lopeta")
+        
+        choice = input("\nValintasi (1-5): ").strip()
+        
+        if choice == "1":
+            voice_chat()
+        elif choice == "2":
+            text_chat()
+        elif choice == "3":
+            DEBUG = not DEBUG
+            print(f"Debug-tila {'käytössä' if DEBUG else 'pois käytöstä'}")
+        elif choice == "4":
+            list_google_finnish_voices()
+        elif choice == "5":
+            print("Lopetetaan...")
             break
-        except EOFError:
-            print("\nSyötteiden virta suljettu. Poistutaan.")
-            # Log final performance metrics
-            log_performance_metrics()
-            break
-        except Exception as e:
-            print(f"\nOdottamaton virhe tapahtui: {e}")
-            import traceback
-            traceback.print_exc()
-            time.sleep(1)
+        else:
+            print("Virheellinen valinta. Valitse 1-5.")
 
 if __name__ == "__main__":
     main()

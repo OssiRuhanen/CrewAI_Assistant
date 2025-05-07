@@ -3,6 +3,7 @@ from crewai.project import CrewBase, agent, crew, task
 from crewai.knowledge.knowledge import Knowledge
 from crewai.knowledge.source.text_file_knowledge_source import TextFileKnowledgeSource
 from agent_assistant.tools.memory_tool import MemoryTool
+from agent_assistant.tools.task_tools import AddTaskTool
 import os
 from agent_assistant.config import KNOWLEDGE_DIR as DEFAULT_KNOWLEDGE_DIR
 
@@ -26,7 +27,7 @@ class AgentAssistant():
     def assistant(self) -> Agent:
         return Agent(
             config=self.agents_config['assistant'],
-            tools=[MemoryTool()],
+            tools=[MemoryTool(), AddTaskTool()],
             verbose=True
         )
 

@@ -247,4 +247,27 @@ class MemoryManager:
         
         # If the user shares an idea
         if "idea" in user_message.lower() or "concept" in user_message.lower():
-            self.add_idea("User Idea", user_message) 
+            self.add_idea("User Idea", user_message)
+
+    def get_unprocessed_conversation_lines(self):
+        """Return all new lines from conversation_history.txt since last processed."""
+        conversation_path = os.path.join(self.knowledge_dir, "conversation_history.txt")
+        last_line = 0
+        last_processed_line_file = os.path.join(self.knowledge_dir, "last_processed_line.txt")
+        if os.path.exists(last_processed_line_file):
+            with open(last_processed_line_file, "r", encoding="utf-8") as f:
+                try:
+                    last_line = int(f.read().strip())
+                except Exception:
+                    last_line = 0
+        lines = []
+        with open(conversation_path, "r", encoding="utf-8") as f:
+            for i, line in enumerate(f, 1):
+                if i > last_line:
+                    lines.append(line.rstrip())
+        return lines, last_line
+
+    def mark_conversation_lines_processed(self, up_to_line):
+        last_processed_line_file = os.path.join(self.knowledge_dir, "last_processed_line.txt")
+        with open(last_processed_line_file, "w", encoding="utf-8") as f:
+            f.write(str(up_to_line)) 

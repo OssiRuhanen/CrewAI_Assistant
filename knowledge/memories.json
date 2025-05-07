@@ -1,0 +1,192 @@
+[
+  {
+    "content": "User wants to review conversation history and make notes on significant points.",
+    "category": "note",
+    "timestamp": "2025-05-07T18:30:50.799140"
+  },
+  {
+    "content": "User prefers to note significant points from conversation history.",
+    "category": "preference",
+    "timestamp": "2025-05-07T18:30:52.464133"
+  },
+  {
+    "content": "Käyttäjä haluaisi nähdä muistutuksia tai hälytyksiä, jos keskusteluhistoriassa on jotain merkittävää tai hälyttävää.",
+    "category": "alert",
+    "timestamp": "2025-05-07T18:32:23.583099"
+  },
+  {
+    "content": "Kävely ruokailun ja iltatoimien välissä ja hälytyksen asettaminen huomisen tapahtumista",
+    "category": "note",
+    "timestamp": "2025-05-07T18:40:06.547250"
+  },
+  {
+    "content": "Herätys 8:00, aamurutiinit, venyttely ja sormitreenin tekeminen, työ loppuu 16:00, punttisali 16:45, ruokailu 18:00, kävely ruokailun ja iltatoimien välillä, iltatoimet 22:00.",
+    "category": "note",
+    "timestamp": "2025-05-07T18:48:00.792573"
+  },
+  {
+    "content": "Herätys on asetettu kello 8:00, aamurutiinit, venyttely, sormitreenin tekeminen, työ päättyy kello 16:00, punttisali alkaa kello 16:45, ruokailu kello 18:00, kävely ruokailun ja iltatoimien välillä, iltatoimet alkavat kello 22:00.",
+    "category": "reminder",
+    "timestamp": "2025-05-07T18:49:48.751464"
+  },
+  {
+    "content": "Test reminder",
+    "category": "reminder",
+    "timestamp": "2025-05-07T18:55:56.569562"
+  },
+  {
+    "content": "Test idea",
+    "category": "idea",
+    "timestamp": "2025-05-07T18:55:56.572583"
+  },
+  {
+    "content": "Test preference",
+    "category": "preference",
+    "timestamp": "2025-05-07T18:55:56.579602"
+  },
+  {
+    "content": "Test reminder",
+    "category": "reminder",
+    "timestamp": "2025-05-07T18:56:34.049073"
+  },
+  {
+    "content": "Test idea",
+    "category": "idea",
+    "timestamp": "2025-05-07T18:56:34.050089"
+  },
+  {
+    "content": "Test preference",
+    "category": "preference",
+    "timestamp": "2025-05-07T18:56:34.060743"
+  },
+  {
+    "content": "Test reminder",
+    "category": "reminder",
+    "timestamp": "2025-05-07T18:57:25.750013"
+  },
+  {
+    "content": "Test idea",
+    "category": "idea",
+    "timestamp": "2025-05-07T18:57:25.754019"
+  },
+  {
+    "content": "Test preference",
+    "category": "preference",
+    "timestamp": "2025-05-07T18:57:25.762180"
+  },
+  {
+    "content": "Test reminder",
+    "category": "reminder",
+    "timestamp": "2025-05-07T18:58:27.395701"
+  },
+  {
+    "content": "Test idea",
+    "category": "idea",
+    "timestamp": "2025-05-07T18:58:27.403700"
+  },
+  {
+    "content": "Test preference",
+    "category": "preference",
+    "timestamp": "2025-05-07T18:58:27.408701"
+  },
+  {
+    "content": "Test reminder",
+    "category": "reminder",
+    "timestamp": "2025-05-07T18:59:07.552948"
+  },
+  {
+    "content": "Test idea",
+    "category": "idea",
+    "timestamp": "2025-05-07T18:59:07.564502"
+  },
+  {
+    "content": "Test preference",
+    "category": "preference",
+    "timestamp": "2025-05-07T18:59:07.570504"
+  },
+  {
+    "content": "Test reminder",
+    "category": "reminder",
+    "timestamp": "2025-05-07T19:00:51.469351"
+  },
+  {
+    "content": "Test idea",
+    "category": "idea",
+    "timestamp": "2025-05-07T19:00:51.479389"
+  },
+  {
+    "content": "Test preference",
+    "category": "preference",
+    "timestamp": "2025-05-07T19:00:51.479389"
+  },
+  {
+    "content": "Test reminder",
+    "category": "reminder",
+    "timestamp": "2025-05-07T19:03:12.725516"
+  },
+  {
+    "content": "Test idea",
+    "category": "idea",
+    "timestamp": "2025-05-07T19:03:12.725516"
+  },
+  {
+    "content": "Test preference",
+    "category": "preference",
+    "timestamp": "2025-05-07T19:03:12.738522"
+  },
+  {
+    "content": "Test reminder",
+    "category": "reminder",
+    "timestamp": "2025-05-07T19:03:56.449887"
+  },
+  {
+    "content": "Test idea",
+    "category": "idea",
+    "timestamp": "2025-05-07T19:03:56.454522"
+  },
+  {
+    "content": "Test preference",
+    "category": "preference",
+    "timestamp": "2025-05-07T19:03:56.459523"
+  },
+  {
+    "content": "Herätys kello 8:00, aamurutiinit, venyttely, sormitreenin tekeminen, työ päättyy kello 16:00, punttisali kello 16:45, ruokailu kello 18:00, kävely ruokailun ja iltatoimien välillä, iltatoimet kello 22:00, ulkoiluta koira kello 16:45, osta porkkana kello 16:45.",
+    "category": "agenda",
+    "timestamp": "2025-05-07T19:23:48.371368"
+  },
+  {
+    "content": "Moi, hajaa, haa gentit.",
+    "category": "note",
+    "timestamp": "2025-05-07T19:27:59.227452"
+  },
+  {
+    "content": "Aja agentit - käyttäjä on kokeillut komentoa, mutta ei tarvinnut lisätä tehtäväksi. Tarvitaan tarkempaa tietoa.",
+    "category": "note",
+    "timestamp": "2025-05-07T19:29:22.117741"
+  },
+  {
+    "content": "Käyttäjä on kysynyt \"aja agentit\" -komennosta. Tarvitaan tarkempaa tietoa, mitä käyttäjä haluaa tämän komennon tarkoittavan.",
+    "category": "note",
+    "timestamp": "2025-05-07T19:29:25.447352"
+  },
+  {
+    "content": "Käyttäjä on pyytänyt 'aja agentit' -komentoa. On kysyttävä tarkemmin, mitä käyttäjä haluaa tämän komennon avulla saavuttaa.",
+    "category": "note",
+    "timestamp": "2025-05-07T19:29:29.484108"
+  },
+  {
+    "content": "- Herätys kello 8:00\n- Aamurutiinit\n- Venyttely\n- Sormitreenin tekeminen\n- Työ päättyy kello 16:00\n- Punttisali kello 16:45\n- Ruokailu kello 18:00\n- Kävely ruokailun ja iltatoimien välillä\n- Iltatoimet kello 22:00\n- Ulkoiluta koira kello 16:45\n- Osta porkkana kello 16:45",
+    "category": "task",
+    "timestamp": "2025-05-07T19:33:45.266319"
+  },
+  {
+    "content": "1. Herätys kello 8:00\n2. Aamurutiinit\n3. Venyttely\n4. Sormitreenin tekeminen\n5. Työ päättyy kello 16:00\n6. Punttisali kello 16:45\n7. Ruokailu kello 18:00\n8. Kävely ruokailun ja iltatoimien välillä\n9. Iltatoimet kello 22:00\n10. Ulkoiluta koira kello 16:45\n11. Osta porkkana kello 16:45",
+    "category": "reminder",
+    "timestamp": "2025-05-07T19:53:15.510692"
+  },
+  {
+    "content": "1. Herätys kello 8:00\n2. Aamurutiinit\n3. Venyttely\n4. Sormitreenin tekeminen\n5. Työ päättyy kello 16:00\n6. Punttisali kello 16:45\n7. Ruokailu kello 18:00\n8. Kävely ruokailun ja iltatoimien välillä\n9. Iltatoimet kello 22:00\n10. Ulkoiluta koira kello 16:45\n11. Osta porkkana kello 16:45",
+    "category": "reminders",
+    "timestamp": "2025-05-07T19:54:29.438495"
+  }
+]

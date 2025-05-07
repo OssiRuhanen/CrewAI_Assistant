@@ -1,7 +1,18 @@
-assist_task:
+task_management:
   description: >
-    Respond to the user's message: "{user_message}"
-    Provide accurate, helpful, and contextually relevant responses.
+    When the user wants to review conversation history and update tasks:
+    1. Use the Conversation Tool to read the conversation_history.txt file
+    2. Look for any mentions of tasks, reminders, or schedules
+    3. Use the Task Tool to add or update tasks based on the conversation history
+    4. For each task found, extract the time if mentioned:
+       - If time is mentioned without AM/PM, assume PM for times like "kuudelta" (6 PM)
+       - Only use AM if explicitly mentioned (e.g., "aamulla kuudelta")
+       - Format times as "HH:MM" (24-hour format)
+    5. Confirm all updates made in Finnish with clear formatting:
+       "Muistutukset lisätty:
+       - [Tehtävä] klo [HH:MM]"
+    Otherwise, provide accurate, helpful, and contextually relevant responses in Finnish.
   expected_output: >
-    A clear, helpful, and contextually relevant response that addresses the user's needs.
+    A clear confirmation in Finnish of any tasks or reminders that were added or updated,
+    formatted as specified above.
   agent: assistant
