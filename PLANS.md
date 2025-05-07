@@ -48,6 +48,14 @@
 - Voice alerts for important tasks and schedules.
 - Voice guidance during workouts.
 
+### Unified Mode
+- [ ] (Planned) Combine voice and text modes into a single unified mode
+- [ ] (Planned) Allow seamless switching between voice and text input without changing modes
+- [ ] (Planned) Maintain CrewAI capabilities in both input methods
+- [ ] (Planned) Automatic voice output for important notifications and responses
+- [ ] (Planned) Option to toggle voice output on/off while keeping the unified mode
+- [ ] (Planned) Context-aware responses that consider both voice and text history
+
 ## 5. Technical Considerations
 
 - **Data Storage:** Start with local vector storage; consider SQL for larger datasets.
@@ -58,9 +66,9 @@
 ## 6. Memory System
 
 ### Basic Memory Features
-- [ ] Simple key-value storage for quick facts and information
-- [ ] Conversation history with timestamps
-- [ ] Task and plan storage
+- [x] Simple key-value storage for quick facts and information
+- [x] Conversation history with timestamps
+- [x] Task and plan storage
 - [ ] Daily activity logging
 - [ ] Quick search and retrieval of stored information
 
@@ -96,7 +104,9 @@
 ### User Experience & File Management
 - [x] `.gitignore` updated to exclude knowledge directory files and private files.
 - [x] `conversation_history.txt` only logs the current session's messages.
-- [x] All file paths are now absolute and based on the script location, so files are always created in the correct place.
+- [x] All file paths are now absolute and based on the script location/config, so files are always created in the correct place.
+- [x] All persistent data (memories, ideas, conversation history, tasks) is stored in the `knowledge/` directory at the project root.
+- [x] `README.md` is up to date with correct run instructions and file locations.
 - [ ] (Planned) Ability to filter and display only certain types of memories (e.g., only workouts, only ideas).
 
 ### Agent & Direct Mode
@@ -113,9 +123,9 @@
 
 ### Core Features
 - [ ] Daily schedule creation and management
-- [ ] Recurring task support
+- [x] Recurring task support (currently only daily repetition is supported; other frequencies are planned)
 - [ ] Priority-based task organization
-- [ ] Voice alerts for upcoming tasks
+- [x] Voice alerts for upcoming tasks
 - [ ] Task categories (work, personal, household)
 - [ ] Progress tracking and completion logging
 
@@ -226,8 +236,6 @@
 - How to implement reliable voice alerts that don't interrupt workflow?
 - How to best structure workout data for analysis and progress tracking?
 
----
-
 ## Notes & Ideas
 
 - [ ] Try out different vector databases for local storage.
@@ -238,6 +246,23 @@
 - [ ] Consider using system tray notifications for alerts.
 - [ ] Look into fitness tracking apps for workout data structure inspiration.
 - [ ] Research voice recognition during physical activity.
+- [ ] Enable tasks.json to trigger actions, such as running CrewAI agent chains or other functions, at scheduled times (not just reminders).
+- [ ] (Idea) Käyttää valmista voice chat -fronttia (esim. ChatGPT, Discord, Telegram) oman CrewAI-backendin kanssa: frontti hoitaa puheentunnistuksen ja TTS:n, oma backend CrewAI, työkalut ja muistijärjestelmä. Tämä mahdollistaa nopean käyttöönoton ilman paikallisen puheentunnistuksen ja TTS:n konfigurointia.
+
+## Bugs & Improvements
+
+### Keskusteluhistorian hallinta
+- [ ] (Planned) Keskusteluhistorian tallennus abstrahoidaan yhteen funktioon, jota käytetään kaikissa moodeissa (voice, text, CrewAI, OpenAI), jotta historia pysyy aina ajan tasalla ja koodi pysyy DRY-periaatteen mukaisena.
+
+### Voice-tilan korjaukset
+- [ ] (Bug) Voice-tilassa keskusteluhistoria ei tallennu conversation_history.txt-tiedostoon – korjataan loggaus niin, että myös voice-tilan normaalit keskustelut tallentuvat kuten CrewAI-tilassa.
+
+### Virheiden käsittely
+- [ ] (Bug) Konsolissa esiintyy virheilmoituksia työkalujen ja tiedostojen käsittelyssä – lisätään virheenkäsittelyä ja tarkistetaan argumenttien tyypit sekä tiedostopolut.
+
+### Suorituskyvyn optimointi
+- [ ] (Planned) Lisää debug-tilan lokituksiin viiveiden (latency) mittaus: lokitetaan aika viestin lähettämisestä vastauksen alkuun sekä mahdollisuuksien mukaan eri vaiheiden (esim. API-kutsu, agentin prosessointi) kestot.
+- [ ] (Planned) Viiveiden optimointi: pyritään nopeuttamaan vasteaikaa erityisesti chat-moodissa. Optimointia ja mittaustuloksia voidaan käsitellä erillisessä analyysitiedostossa (esim. PERFORMANCE.md).
 
 ---
 

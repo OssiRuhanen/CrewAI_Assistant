@@ -19,6 +19,7 @@ from agent_assistant.crew import AgentAssistant
 from agent_assistant.memory import MemoryManager
 from agent_assistant.task_manager import TaskManager
 from agent_assistant.config import KNOWLEDGE_DIR
+from agent_assistant.performance import measure_performance, log_performance_metrics
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
@@ -40,7 +41,7 @@ if not OPENAI_API_KEY:
 
 # Models (adjust as needed)
 CHAT_MODEL = "gpt-4-turbo"  # Or "gpt-4", "gpt-4o", etc.
-TTS_MODEL = "tts-1"          # tts-1 or tts-1-hd
+TTS_MODEL = "tts-1-hd"          # tts-1 or tts-1-hd
 TTS_VOICE = "alloy"          # Options: alloy, echo, fable, onyx, nova, shimmer
 
 # Audio Recording Settings
@@ -52,7 +53,7 @@ OUTPUT_DEVICE = None  # Will be set to default if None
 PRE_RECORD_BUFFER_SECONDS = 0.5  # Buffer to capture the beginning of speech
 
 # Google TTS Configuration
-USE_GOOGLE_TTS = True  # Set to True to use Google TTS
+USE_GOOGLE_TTS = False  # Set to True to use Google TTS
 SELECTED_GOOGLE_TTS_VOICE = "fi-FI-Wavenet-A"  # Default, can be changed by user
 
 # Set up absolute paths for knowledge directory and conversation history
@@ -61,9 +62,10 @@ CONVERSATION_HISTORY_PATH = os.path.join(KNOWLEDGE_DIR, "conversation_history.tx
 # Ensure knowledge directory exists
 os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
 
-# Truncate conversation_history.txt at session start
-with open(CONVERSATION_HISTORY_PATH, "w", encoding="utf-8") as f:
-    f.write("# Conversation History\n# This file stores a log of conversations with the user.\n# Each conversation is timestamped and includes both user and assistant messages.\n\n# Format: [Date Time] - [Speaker] - [Message]\n")
+# Initialize conversation history file if it doesn't exist
+if not os.path.exists(CONVERSATION_HISTORY_PATH):
+    with open(CONVERSATION_HISTORY_PATH, "w", encoding="utf-8") as f:
+        f.write("# Conversation History\n# This file stores a log of conversations with the user.\n# Each conversation is timestamped and includes both user and assistant messages.\n\n# Format: [Date Time] - [Speaker] - [Message]\n")
 
 # --- Initialization ---
 try:
@@ -284,55 +286,93 @@ def record_audio_with_silence_detection(max_duration=30, silence_threshold=SILEN
     else:
         return None, sample_rate
 
+@measure_performance("transcribe_audio")
 def transcribe_audio(audio, fs):
-    """Transcribes audio using OpenAI's Whisper API."""
+    """Transcribe audio using OpenAI's Whisper API."""
     if audio is None:
         return None
-    
+        
     try:
-        # Save audio to a temporary WAV file
+        # Save audio to a temporary file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-            temp_filename = temp_file.name
-            wav.write(temp_filename, fs, audio)
-        
-        # Open the file for transcription
-        with open(temp_filename, "rb") as audio_file:
-            transcript = openai_client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file
-            )
-        
+            wav.write(temp_file.name, fs, audio)
+            
+            # Open the file and send to OpenAI
+            with open(temp_file.name, "rb") as audio_file:
+                response = openai_client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="fi"
+                )
+                
         # Clean up the temporary file
-        os.unlink(temp_filename)
+        os.unlink(temp_file.name)
         
-        return transcript.text.strip()
+        return response.text
     except Exception as e:
         print(f"Virhe äänen transkriboinnissa: {e}")
-        import traceback
-        traceback.print_exc()
         return None
 
+@measure_performance("speak_text_google")
 def speak_text_google(text_to_speak):
-    """Uses Google Cloud TTS to convert text to speech and plays it."""
-    if not text_to_speak:
-        return
-    client = texttospeech.TextToSpeechClient()
-    synthesis_input = texttospeech.SynthesisInput(text=text_to_speak)
-    voice = texttospeech.VoiceSelectionParams(
-        language_code="fi-FI",
-        name=SELECTED_GOOGLE_TTS_VOICE,
-        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE
-    )
-    audio_config = texttospeech.AudioConfig(
-        audio_encoding=texttospeech.AudioEncoding.LINEAR16
-    )
-    response = client.synthesize_speech(
-        input=synthesis_input, voice=voice, audio_config=audio_config
-    )
-    audio_stream = io.BytesIO(response.audio_content)
-    data, samplerate = sf.read(audio_stream, dtype='int16')
-    sd.play(data, samplerate)
-    sd.wait()
+    """Convert text to speech using Google Cloud TTS."""
+    try:
+        client = texttospeech.TextToSpeechClient()
+        
+        # Set the text input to be synthesized
+        synthesis_input = texttospeech.SynthesisInput(text=text_to_speak)
+        
+        # Build the voice request
+        voice = texttospeech.VoiceSelectionParams(
+            language_code="fi-FI",
+            name=SELECTED_GOOGLE_TTS_VOICE
+        )
+        
+        # Select the type of audio file
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3
+        )
+        
+        # Perform the text-to-speech request
+        response = client.synthesize_speech(
+            input=synthesis_input, voice=voice, audio_config=audio_config
+        )
+        
+        # Save the audio to a temporary file
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
+            temp_file.write(response.audio_content)
+            temp_file_path = temp_file.name
+        
+        # Play the audio
+        data, samplerate = sf.read(temp_file_path)
+        # Ensure data is float32
+        data = data.astype(np.float32)
+        
+        # Ensure audio system is ready
+        sd.stop()
+        sd.wait()
+        
+        # Create a stream for non-blocking playback
+        stream = sd.OutputStream(samplerate=samplerate, channels=1, dtype=np.float32)
+        stream.start()
+        
+        try:
+            # Play the audio in chunks
+            chunk_size = int(samplerate * 0.1)  # 100ms chunks
+            for i in range(0, len(data), chunk_size):
+                chunk = data[i:i + chunk_size]
+                stream.write(chunk)
+                
+        except KeyboardInterrupt:
+            print("\nPuhe keskeytetty.")
+        finally:
+            stream.stop()
+            stream.close()
+            # Clean up
+            os.unlink(temp_file_path)
+        
+    except Exception as e:
+        print(f"Virhe tekstin muuntamisessa puheeksi: {e}")
 
 def speak_text(text_to_speak):
     """Speaks text using the selected TTS engine."""
@@ -354,35 +394,52 @@ def speak_text(text_to_speak):
             data, samplerate = sf.read(audio_stream)
             if len(data) == 0:
                 return
-            sd.play(data, samplerate, device=OUTPUT_DEVICE)
+            
+            # Ensure data is float32
+            data = data.astype(np.float32)
+            
+            # Ensure audio system is ready
+            sd.stop()
             sd.wait()
+            
+            # Create a stream for non-blocking playback
+            stream = sd.OutputStream(samplerate=samplerate, channels=1, device=OUTPUT_DEVICE, dtype=np.float32)
+            stream.start()
+            
+            try:
+                # Play the audio in chunks
+                chunk_size = int(samplerate * 0.1)  # 100ms chunks
+                for i in range(0, len(data), chunk_size):
+                    chunk = data[i:i + chunk_size]
+                    stream.write(chunk)
+                    
+            except KeyboardInterrupt:
+                print("\nPuhe keskeytetty.")
+            finally:
+                stream.stop()
+                stream.close()
+                
         except Exception as e:
             print(f"Odottamaton virhe tapahtui tekstistä-puheeksi-muuntamisessa: {e}")
 
+@measure_performance("get_openai_response")
 def get_openai_response(current_history):
-    """Sends the chat history to OpenAI and gets the assistant's response."""
-    print("Haetaan vastaus OpenAI:lta...")
+    """Get response from OpenAI API."""
     try:
         response = openai_client.chat.completions.create(
             model=CHAT_MODEL,
-            messages=current_history
+            messages=current_history,
+            temperature=0.7,
+            max_tokens=1000
         )
-        assistant_message = response.choices[0].message.content
-        return assistant_message
-    except openai.APIConnectionError as e:
-        print(f"OpenAI API Yhteysvirhe: {e}")
-    except openai.RateLimitError as e:
-        print(f"OpenAI Nopeusrajoitus ylitetty: {e}")
-    except openai.APIStatusError as e:
-        print(f"OpenAI API Tilavirhe (Tila {e.status_code}): {e.response}")
+        return response.choices[0].message.content
     except Exception as e:
-        print(f"Odottamaton virhe tapahtui OpenAI-keskustelun kutsumisessa: {e}")
-    return None # Return None on error
+        print(f"Virhe OpenAI API -kutsussa: {e}")
+        return None
 
+@measure_performance("process_with_openai")
 def process_with_openai(user_message):
-    """Process user message with direct OpenAI API for faster responses."""
-    global chat_history
-    
+    """Process user message with OpenAI API."""
     # Add user message to chat history
     chat_history.append({"role": "user", "content": user_message})
     
@@ -393,10 +450,6 @@ def process_with_openai(user_message):
         # Add assistant response to chat history
         chat_history.append({"role": "assistant", "content": response})
         
-        # Log conversation to memory
-        memory_manager.log_conversation("User", user_message)
-        memory_manager.log_conversation("Assistant", response)
-        
         # Extract memories from the conversation
         memory_manager.extract_memory_from_conversation(user_message, response)
         
@@ -404,6 +457,7 @@ def process_with_openai(user_message):
     else:
         return "Valitettavasti en pystynyt luomaan vastausta. Yritä uudelleen."
 
+@measure_performance("process_with_crewai")
 def process_with_crewai(user_message):
     """Process user message with CrewAI for advanced capabilities."""
     try:
@@ -413,10 +467,6 @@ def process_with_crewai(user_message):
         # Process with CrewAI
         result = crew.kickoff(inputs={"user_message": user_message})
         
-        # Log conversation to memory
-        memory_manager.log_conversation("User", user_message)
-        memory_manager.log_conversation("Assistant", result)
-        
         # Extract memories from the conversation
         memory_manager.extract_memory_from_conversation(user_message, result)
         
@@ -425,6 +475,7 @@ def process_with_crewai(user_message):
         print(f"CrewAI virhe: {str(e)}")
         return "Valitettavasti CrewAI-tila ei toiminut. Yritä uudelleen tai palaa suoraan OpenAI-tilaan sanomalla 'käytä puhetta'."
 
+@measure_performance("voice_chat")
 def voice_chat():
     """Voice chat function that uses OpenAI API for quick responses by default."""
     print("Puhechat käynnissä. Puhu nyt...")
@@ -438,15 +489,24 @@ def voice_chat():
             # Record audio
             audio_data = record_audio_with_silence_detection()
             
+            # Check if audio was recorded
+            if audio_data[0] is None:
+                if DEBUG:
+                    print("Ei kuultua ääntä. Yritä uudelleen.")
+                continue
+            
             # Transcribe audio to text
             transcription = transcribe_audio(audio_data[0], audio_data[1])
             
             if not transcription:
                 if DEBUG:
-                    print("Ei kuultua ääntä. Yritä uudelleen.")
+                    print("Ei kuultua ääntä tai transkribointi epäonnistui. Yritä uudelleen.")
                 continue
                 
             print(f"Sinä: {transcription}")
+            
+            # Log user message to conversation history
+            memory_manager.log_conversation("User", transcription)
             
             # Check for mode switching commands
             if "käytä agenttia" in transcription.lower():
@@ -454,6 +514,7 @@ def voice_chat():
                 response = "Nyt käytän CrewAI-tilaa. Tämä antaa minulle pääsyn edistyneisiin ominaisuuksiin ja työkaluihin."
                 print(f"Avustaja: {response}")
                 speak_text(response)
+                memory_manager.log_conversation("Assistant", response)
                 continue
                 
             elif "käytä puhetta" in transcription.lower():
@@ -461,6 +522,7 @@ def voice_chat():
                 response = "Nyt käytän suoraa OpenAI-tilaa nopeampien vastausten saamiseksi."
                 print(f"Avustaja: {response}")
                 speak_text(response)
+                memory_manager.log_conversation("Assistant", response)
                 continue
             
             # Check for task commands first
@@ -468,6 +530,7 @@ def voice_chat():
             if task_response:
                 print(f"Avustaja: {task_response}")
                 speak_text(task_response)
+                memory_manager.log_conversation("Assistant", task_response)
                 continue
             
             # Process based on mode
@@ -479,6 +542,9 @@ def voice_chat():
                 response = process_with_openai(transcription)
             
             print(f"Avustaja: {response}")
+            
+            # Log assistant response to conversation history
+            memory_manager.log_conversation("Assistant", response)
             
             # Convert response to speech
             speak_text(response)
@@ -543,6 +609,8 @@ def main():
             
             if command in ["quit", "exit"]:
                 print("Näkemiin!")
+                # Log final performance metrics
+                log_performance_metrics()
                 break
             elif command == "voice":
                 voice_chat()
@@ -574,9 +642,13 @@ def main():
                 
         except KeyboardInterrupt:
             print("\nKäyttäjän keskeyttämä. Poistutaan.")
+            # Log final performance metrics
+            log_performance_metrics()
             break
         except EOFError:
             print("\nSyötteiden virta suljettu. Poistutaan.")
+            # Log final performance metrics
+            log_performance_metrics()
             break
         except Exception as e:
             print(f"\nOdottamaton virhe tapahtui: {e}")
