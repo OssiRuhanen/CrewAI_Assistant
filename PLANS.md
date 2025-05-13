@@ -10,6 +10,96 @@
 - Silence detection for voice input
 - Audio device warmup to prevent initial delays
 
+### Screenshot Analysis Feature
+- [ ] Screenshot capture and analysis:
+  - [ ] Trigger methods:
+    - [ ] Print Screen key press detection
+    - [ ] Voice command "ruutu" or "screenshot"
+    - [ ] Custom keyboard shortcut
+  - [ ] Screenshot processing:
+    - [ ] Automatic capture of full screen or active window
+    - [ ] Optional region selection
+    - [ ] Temporary storage of screenshots
+  - [ ] Analysis capabilities:
+    - [ ] Use GPT-4 Vision (gpt-4-vision-preview) for image analysis
+    - [ ] Send screenshot to AI model for analysis
+    - [ ] Support for simultaneous voice/text questions
+    - [ ] Context-aware responses based on image content
+    - [ ] OCR for text extraction from screenshots
+  - [ ] User interaction:
+    - [ ] Voice feedback during capture
+    - [ ] Preview of captured screenshot
+    - [ ] Option to retake or cancel
+    - [ ] Confirmation of successful capture
+  - [ ] Storage and history:
+    - [ ] Optional saving of screenshots
+    - [ ] Screenshot history with timestamps
+    - [ ] Link screenshots to relevant conversations
+  - [ ] Privacy considerations:
+    - [ ] Clear indication when screenshot is being taken
+    - [ ] Option to exclude sensitive windows
+    - [ ] Automatic cleanup of temporary files
+  - [ ] Technical implementation:
+    - [ ] Use OpenAI's gpt-4-vision-preview model
+    - [ ] Handle image encoding and API requests
+    - [ ] Process model responses
+    - [ ] Manage API rate limits and costs
+  - [ ] Implementation details:
+    - [ ] Add keyboard monitoring for Ctrl+P:
+      ```python
+      import keyboard
+      keyboard.add_hotkey('ctrl+p', take_screenshot)
+      ```
+    - [ ] Add voice command "ruutu" to voice recognition:
+      ```python
+      if "ruutu" in transcribed_text.lower():
+          take_screenshot()
+      ```
+    - [ ] Screenshot capture function:
+      ```python
+      from PIL import ImageGrab
+      import io
+      import base64
+      
+      def take_screenshot():
+          # Capture screen
+          screenshot = ImageGrab.grab()
+          # Convert to bytes
+          img_byte_arr = io.BytesIO()
+          screenshot.save(img_byte_arr, format='PNG')
+          img_byte_arr = img_byte_arr.getvalue()
+          # Convert to base64
+          base64_image = base64.b64encode(img_byte_arr).decode('utf-8')
+          return base64_image
+      ```
+    - [ ] GPT-4 Vision integration:
+      ```python
+      def analyze_screenshot(base64_image, question=""):
+          response = openai_client.chat.completions.create(
+              model="gpt-4-vision-preview",
+              messages=[
+                  {
+                      "role": "user",
+                      "content": [
+                          {"type": "text", "text": question},
+                          {
+                              "type": "image_url",
+                              "image_url": {
+                                  "url": f"data:image/png;base64,{base64_image}"
+                              }
+                          }
+                      ]
+                  }
+              ],
+              max_tokens=300
+          )
+          return response.choices[0].message.content
+      ```
+    - [ ] Integration with chat modes:
+      - [ ] Text mode: Capture screenshot and ask for question
+      - [ ] Voice mode: Capture screenshot and use voice question
+      - [ ] Store screenshot and analysis in conversation history
+
 ### Chat Modes
 - Voice chat mode
 - Text chat mode
@@ -218,6 +308,49 @@
 - [x] System message instructs the assistant to respond naturally to memory requests in direct chat mode (e.g., "Sure, I'll remember that!").
 - [ ] (Planned) Ability to mark "remember this" messages for easier extraction by the agent later.
 - [ ] (Planned) Automatic memory extraction process that reviews conversation history at the end of the day and updates memories/ideas.
+
+### Unstructured Chat Data Processing
+- [ ] Daily routine data extraction from natural conversations:
+  - [ ] AI analyzes unstructured chat history
+  - [ ] Extracts relevant information about:
+    - Sleep patterns and quality
+    - Workout details and progress
+    - Daily activities and habits
+    - Mood and energy levels
+    - Nutrition and meals
+    - Productivity and focus
+  - [ ] Stores original chat messages for context
+  - [ ] Fills structured database fields based on chat content
+  - [ ] Maintains connection between raw chat and structured data
+
+### Database Structure
+- [ ] Two-layer storage system:
+  1. Raw chat storage:
+     - [ ] Complete conversation history
+     - [ ] Timestamps and context
+     - [ ] Original messages preserved
+  2. Structured data storage:
+     - [ ] Extracted and verified information
+     - [ ] Organized by categories
+     - [ ] Easy to query and analyze
+     - [ ] Links back to source chat messages
+
+### Data Extraction Process
+- [ ] Automated daily review:
+  - [ ] AI scans new chat entries
+  - [ ] Identifies relevant information
+  - [ ] Extracts structured data
+  - [ ] Updates database fields
+- [ ] Manual verification:
+  - [ ] User can review extracted data
+  - [ ] Correct any misinterpretations
+  - [ ] Add missing information
+  - [ ] Confirm accuracy
+- [ ] Continuous learning:
+  - [ ] AI improves extraction accuracy
+  - [ ] Learns from user corrections
+  - [ ] Adapts to user's communication style
+  - [ ] Builds personal context understanding
 
 ### Workout and Structured Data Logging
 - [x] Free-form workout notes can be logged to `memories.txt`.

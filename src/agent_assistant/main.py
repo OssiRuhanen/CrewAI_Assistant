@@ -24,6 +24,9 @@ from agent_assistant.task_manager import TaskManager
 from agent_assistant.config import KNOWLEDGE_DIR, CONFIG_DIR
 from agent_assistant.performance import measure_performance, log_performance_metrics
 from datetime import datetime
+import keyboard
+from PIL import ImageGrab
+import base64
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
@@ -565,149 +568,137 @@ def process_with_crewai(user_input: str, agents: list, tasks_config: dict) -> st
         result = str(result)
     return result
 
-def voice_chat():
-    """Handle voice chat mode."""
-    print("Aloitetaan äänikeskustelu...")
-    print("Sano 'lopeta' kun haluat lopettaa.")
-    
-    # Initialize task and memory managers
-    task_manager = TaskManager()
-    memory_manager = MemoryManager(knowledge_dir=KNOWLEDGE_DIR)
-    
-    # Track if we're in agent mode
-    use_agent = False
-    
-    # Log the start of conversation
-    with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
-        f.write(f"\n# Keskustelu alkoi: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    
-    while True:
-        # Get voice input
-        audio_data = record_audio_with_silence_detection()
-        if audio_data[0] is None:
-            continue
-            
-        user_input = transcribe_audio(audio_data[0], audio_data[1])
-        if not user_input:
-            continue
-            
-        print(f"Sinä: {user_input}")
-        
-        # Log user input
-        with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
-            f.write(f"Käyttäjä: {user_input}\n")
-        
-        # Check for exit command
-        if user_input.lower() in ["lopeta", "exit", "quit"]:
-            print("Lopetetaan äänikeskustelu...")
-            break
-            
-        # Check for mode switch command
-        if user_input.lower() in ["puhe", "speech"]:
-            print("Siirrytään puhemoodiin...")
-            return "speech"
-        
-        # Process input
-        if use_agent:
-            # Process with CrewAI
-            result = process_with_crewai(user_input, agents, tasks_config)
-        else:
-            # Process with OpenAI
-            result = process_with_openai(user_input)
-            
-            # Check for special commands from OpenAI processing
-            if result == "AGENT_MODE":
-                use_agent = True
-                print("Siirrytään agenttitilaan...")
-                # Initialize CrewAI
-                agents, tasks_config = setup_crewai_agents()
-                result = "Olen nyt agenttitilassa. Voit pyytää minua tekemään tehtäviä tai analysoimaan keskusteluhistoriaa."
-            elif result == "RUN_AGENTS":
-                if not use_agent:
-                    use_agent = True
-                    agents, tasks_config = setup_crewai_agents()
-                print("Käydään läpi keskusteluhistoriaa ja päivitetään tehtäviä...")
-                result = process_with_crewai(
-                    "Käy läpi keskusteluhistoria ja päivitä tehtävät sen perusteella.",
-                    agents,
-                    tasks_config
-                )
-        
-        print(f"Assistentti: {result}")
-        
-        # Log assistant response
-        with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
-            f.write(f"Assistentti: {result}\n")
-        
-        # Speak the response
-        speak_text(result)
-    
-    return None
+def take_screenshot():
+    """Take a screenshot and return it as base64 encoded string."""
+    try:
+        # Capture screen
+        screenshot = ImageGrab.grab()
+        # Convert to bytes
+        img_byte_arr = io.BytesIO()
+        screenshot.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        # Convert to base64
+        base64_image = base64.b64encode(img_byte_arr).decode('utf-8')
+        return base64_image
+    except Exception as e:
+        print(f"Virhe kuvakaappauksen ottamisessa: {e}")
+        return None
+
+def analyze_screenshot(base64_image: str, question: str = "") -> str:
+    """Analyze screenshot using GPT-4 Vision."""
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": question or "Analysoi tämä kuva ja kerro mitä näet."},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=300
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Virhe kuvan analysoinnissa: {e}"
+
+def handle_screenshot(question: str = "") -> None:
+    """Handle screenshot capture and analysis."""
+    speak_text("Otetaan kuvakaappaus...")
+    base64_image = take_screenshot()
+    if base64_image:
+        speak_text("Analysoidaan kuvaa...")
+        analysis = analyze_screenshot(base64_image, question)
+        print("\nAvustaja:", analysis)
+        speak_text(analysis)
+    else:
+        speak_text("Kuvakaappauksen ottaminen epäonnistui.")
 
 def text_chat():
-    """Handle text chat mode."""
-    print("Aloitetaan tekstikeskustelu...")
-    print("Kirjoita 'lopeta' kun haluat lopettaa.")
+    """Text chat mode with screenshot support."""
+    print("Kirjoita 'exit' lopettaaksesi.")
+    print("Paina Ctrl+P ottaaaksesi kuvakaappauksen.")
     
-    # Initialize task and memory managers
-    task_manager = TaskManager()
-    memory_manager = MemoryManager(knowledge_dir=KNOWLEDGE_DIR)
-    
-    # Track if we're in agent mode
-    use_agent = False
-    
-    # Log the start of conversation
-    with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
-        f.write(f"\n# Keskustelu alkoi: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    # Set up keyboard shortcut
+    keyboard.add_hotkey('ctrl+p', lambda: handle_screenshot())
     
     while True:
-        # Get text input
-        user_input = input("Sinä: ").strip()
-        if not user_input:
-            continue
-        
-        # Log user input
-        with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
-            f.write(f"Käyttäjä: {user_input}\n")
-        
-        # Check for exit command
-        if user_input.lower() in ["lopeta", "exit", "quit"]:
-            print("Lopetetaan tekstikeskustelu...")
+        user_message = input("Sinä: ")
+        if user_message.lower() in ["exit", "quit"]:
             break
             
-        # Check for mode switch command
-        if user_input.lower() in ["ääni", "voice"]:
-            print("Siirrytään äänimoodiin...")
-            return "voice"
+        # Check for task commands first
+        task_response = process_task_command(user_message)
+        if task_response:
+            print("Avustaja:", task_response)
+            continue
         
-        # Check for agent commands
-        if any(cmd in user_input.lower() for cmd in ["agentti", "agentit", "agent"]):
-            use_agent = True
-            print("Siirrytään agenttitilaan...")
-            # Initialize CrewAI
-            agents, tasks_config = setup_crewai_agents()
-            response = "Olen nyt agenttitilassa. Voit pyytää minua tekemään tehtäviä tai analysoimaan keskusteluhistoriaa."
-        elif any(cmd in user_input.lower() for cmd in ["aja agentit", "ajaa agentit", "aja-agentit"]):
-            if not use_agent:
-                use_agent = True
-                agents, tasks_config = setup_crewai_agents()
-            print("Käydään läpi keskusteluhistoriaa ja päivitetään tehtäviä...")
-            response = process_with_crewai(
-                "Käy läpi keskusteluhistoria ja päivitä tehtävät sen perusteella.",
-                agents,
-                tasks_config
-            )
-        else:
-            # Process with OpenAI
-            response = process_with_openai(user_input)
+        # Log user message to conversation history
+        memory_manager.log_conversation("User", user_message)
         
-        print(f"Assistentti: {response}")
+        result = process_with_openai(user_message)
+        print("Avustaja:", result)
         
-        # Log assistant response
-        with open(os.path.join(KNOWLEDGE_DIR, "conversation_history.txt"), "a", encoding="utf-8") as f:
-            f.write(f"Assistentti: {response}\n")
+        # Log assistant response to conversation history
+        memory_manager.log_conversation("Assistant", result)
+        
+        # Extract memories from the conversation
+        memory_manager.extract_memory_from_conversation(user_message, result)
+
+def voice_chat():
+    """Voice chat mode with screenshot support."""
+    print("Puhu tai sano 'exit' lopettaaksesi.")
+    print("Sano 'ruutu' ottaaaksesi kuvakaappauksen.")
     
-    return None
+    while True:
+        print("\nKuuntelen...")
+        audio_data, sample_rate = record_audio_with_silence_detection()
+        
+        if audio_data is None:
+            continue
+            
+        transcribed_text = transcribe_audio(audio_data, sample_rate)
+        if not transcribed_text:
+            continue
+            
+        print(f"Sinä: {transcribed_text}")
+        
+        if transcribed_text.lower() in ["exit", "quit", "lopeta"]:
+            break
+            
+        # Check for screenshot command
+        if "ruutu" in transcribed_text.lower():
+            # Extract question if any
+            question = transcribed_text.lower().replace("ruutu", "").strip()
+            handle_screenshot(question)
+            continue
+            
+        # Check for task commands
+        task_response = process_task_command(transcribed_text)
+        if task_response:
+            print("Avustaja:", task_response)
+            speak_text(task_response)
+            continue
+        
+        # Log user message to conversation history
+        memory_manager.log_conversation("User", transcribed_text)
+        
+        result = process_with_openai(transcribed_text)
+        print("Avustaja:", result)
+        speak_text(result)
+        
+        # Log assistant response to conversation history
+        memory_manager.log_conversation("Assistant", result)
+        
+        # Extract memories from the conversation
+        memory_manager.extract_memory_from_conversation(transcribed_text, result)
 
 def setup_crewai_agents():
     """Set up CrewAI agents with their tools and configurations."""
