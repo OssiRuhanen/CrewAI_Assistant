@@ -27,6 +27,7 @@ from datetime import datetime
 import keyboard
 from PIL import ImageGrab
 import base64
+from langdetect import detect
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
@@ -197,31 +198,53 @@ def chat():
     """
     crew = AgentAssistant().crew()
     print("Kirjoita 'exit' lopettaaksesi.")
+    # Daily journaling prompt flag to avoid repeated prompts within a session
+    journaling_prompted = False
     while True:
+        # Prompt for daily log in the evening if not yet logged
+        now = datetime.now()
+        today = now.strftime("%Y-%m-%d")
+        if 18 <= now.hour < 23 and not journaling_prompted and not memory_manager.has_daily_log(today):
+            journaling_prompted = True
+            print("Avustaja: Et ole vielä kirjannut päivän tapahtumia. Haluatko tehdä päiväkirjamerkinnän nyt? (kyllä/ei)")
+            ans = input("Sinä: ")
+            if ans.lower() in ("kyllä", "k", "yes", "y"):
+                print("Avustaja: Kirjoita päivän tapahtumien yhteenveto:")
+                entry = input("Sinä: ")
+                memory_manager.add_daily_log(entry, today)
+                print("Avustaja: Päiväkirjamerkintä tallennettu.")
+            elif ans.lower() in ("ei", "e", "no", "n"):
+                memory_manager.add_daily_log("", today)
+                print("Avustaja: Selvä, ei tehdä päiväkirjaa tänään.")
+            else:
+                print("Avustaja: En ymmärtänyt vastaustasi, jatketaan normaalisti.")
         user_message = input("Sinä: ")
         if user_message.lower() in ["exit", "quit"]:
             break
-        try:
-            # Check for task commands first
-            task_response = process_task_command(user_message)
-            if task_response:
-                print("Avustaja:", task_response)
-                continue
-            
-            # Log user message to conversation history
-            memory_manager.log_conversation("User", user_message)
-            
-            result = crew.kickoff(inputs={"user_message": user_message})
-            print("Avustaja:", result)
-            
-            # Log assistant response to conversation history
-            memory_manager.log_conversation("Assistant", result)
-            
-            # Extract memories from the conversation
-            memory_manager.extract_memory_from_conversation(user_message, result)
-            
-        except Exception as e:
-            print(f"Virhe: {e}")
+        # Intercept 'ask ...' and route to handle_youtube
+        if user_message.lower().startswith("ask "):
+            question = user_message[4:].strip()
+            handle_youtube(action="ask", question=question)
+            continue
+        
+        # Check for task commands first
+        task_response = process_task_command(user_message)
+        if task_response:
+            print("Avustaja:", task_response)
+            continue
+        
+        # Log user message to conversation history
+        memory_manager.log_conversation("User", user_message)
+        
+        result = crew.kickoff(inputs={"user_message": user_message})
+        print("Avustaja:", result)
+        
+        # Log assistant response to conversation history
+        memory_manager.log_conversation("Assistant", result)
+        
+        # Extract memories from the conversation
+        memory_manager.extract_memory_from_conversation(user_message, result)
+        
 
 def record_audio_with_silence_detection(max_duration=30, silence_threshold=SILENCE_THRESHOLD, silence_duration=1):
     """
@@ -620,83 +643,220 @@ def handle_screenshot(question: str = "") -> None:
         speak_text(analysis)
     else:
         speak_text("Kuvakaappauksen ottaminen epäonnistui.")
+    
+# Add global variables to remember last video context
+last_youtube_video_id = None
+last_youtube_transcript = None
+
+def handle_youtube(url: str = None, action: str = "transcript", question: str = None) -> None:
+    global last_youtube_video_id, last_youtube_transcript
+    # Retrieve URL from argument or clipboard if not provided
+    if url:
+        video_url = url
+    else:
+        try:
+            import pyperclip
+        except ImportError:
+            print("\nAvustaja: pyperclip-kirjasto puuttuu, anna videon URL komennon parametrina.")
+            speak_text("Pyperclip-kirjasto puuttuu. Anna URL manuaalisesti.")
+            return
+        video_url = pyperclip.paste()
+
+    # For 'ask' action, allow using last video if no URL is provided
+    if action == "ask" and (not video_url or not video_url.startswith("http")):
+        if last_youtube_video_id and last_youtube_transcript:
+            try:
+                from agent_assistant.tools.youtube_tool import YouTubeTool
+            except ImportError as e:
+                print(f"\nAvustaja: YouTube-työkalua ei löydy: {e}")
+                speak_text("YouTube-työkalu ei ole saatavilla.")
+                return
+            try:
+                tool = YouTubeTool()
+            except Exception as e:
+                print(f"\nAvustaja: YouTube-työkalun alustuksessa tapahtui virhe: {e}")
+                speak_text(str(e))
+                return
+            try:
+                result = tool._ask(last_youtube_video_id, question)
+            except Exception as e:
+                print(f"\nAvustaja: Virhe YouTube-työkalun suorittamisessa: {e}")
+                speak_text("Videon käsittely epäonnistui.")
+                return
+            print("\nAvustaja:", result)
+            speak_text(result)
+            return
+        else:
+            speak_text("Ei tiedossa olevaa videota, johon kysymys voisi kohdistua. Käytä ensin 'youtube <url>' komentoa.")
+            return
+
+    if not video_url or not video_url.startswith("http"):
+        speak_text("Kopioi videon osoite leikepöydälle ja sano 'youtube' uudelleen.")
+        return
+
+    try:
+        from agent_assistant.tools.youtube_tool import YouTubeTool
+    except ImportError as e:
+        print(f"\nAvustaja: YouTube-työkalua ei löydy: {e}")
+        speak_text("YouTube-työkalu ei ole saatavilla.")
+        return
+
+    try:
+        tool = YouTubeTool()
+    except Exception as e:
+        print(f"\nAvustaja: YouTube-työkalun alustuksessa tapahtui virhe: {e}")
+        speak_text(str(e))
+        return
+    try:
+        result = tool._run(url=video_url, action=action, question=question)
+        # If transcript was just indexed, remember it for future 'ask' commands
+        if action == "transcript":
+            video_id = None
+            try:
+                from agent_assistant.tools.youtube_tool import _extract_video_id
+                video_id = _extract_video_id(video_url)
+            except Exception:
+                pass
+            if video_id:
+                yt_dir = os.path.join(KNOWLEDGE_DIR, "youtube")
+                transcript_path = os.path.join(yt_dir, f"{video_id}.txt")
+                if os.path.exists(transcript_path):
+                    with open(transcript_path, "r", encoding="utf-8") as f:
+                        last_youtube_transcript = f.read()
+                    last_youtube_video_id = video_id
+    except ValueError as e:
+        print(f"\nAvustaja: {e}")
+        speak_text(str(e))
+        return
+    except Exception as e:
+        print(f"\nAvustaja: Virhe YouTube-työkalun suorittamisessa: {e}")
+        speak_text("Videon käsittely epäonnistui.")
+        return
+    print("\nAvustaja:", result)
+    speak_text(result)
 
 def text_chat():
     """Text chat mode with screenshot support."""
     print("Kirjoita 'exit' lopettaaksesi.")
     print("Paina Ctrl+P ottaaaksesi kuvakaappauksen.")
-    
+    print("Kirjoita 'video <youtube-linkki> <kysymyksesi>' saadaksesi vastauksen videon sisällöstä.")
+    print("Voit myös käyttää pelkkää 'video <kysymyksesi>', jolloin vastaus perustuu viimeksi käsiteltyyn videoon.")
     # Set up keyboard shortcut
     keyboard.add_hotkey('ctrl+p', lambda: handle_screenshot())
-    
+    # Daily journaling prompt flag to avoid repeated prompts within a session
+    journaling_prompted_text = False
     while True:
+        # Prompt for daily log in the evening if not yet logged
+        now = datetime.now()
+        today = now.strftime("%Y-%m-%d")
+        if not journaling_prompted_text and not memory_manager.has_daily_log(today):
+            journaling_prompted_text = True
+            print("Avustaja: Et ole vielä kirjannut päivän tapahtumia. Haluatko tehdä päiväkirjamerkinnän nyt? (kyllä/ei)")
+            ans = input("Sinä: ")
+            if ans.lower() in ("kyllä", "k", "yes", "y"):
+                print("Avustaja: Kirjoita päivän tapahtumien yhteenveto:")
+                entry = input("Sinä: ")
+                memory_manager.add_daily_log(entry, today)
+                print("Avustaja: Päiväkirjamerkintä tallennettu.")
+            elif ans.lower() in ("ei", "e", "no", "n"):
+                memory_manager.add_daily_log("", today)
+                print("Avustaja: Selvä, ei tehdä päiväkirjaa tänään.")
+            else:
+                print("Avustaja: En ymmärtänyt vastaustasi, jatketaan normaalisti.")
         user_message = input("Sinä: ")
         if user_message.lower() in ["exit", "quit"]:
             break
-            
-        # Check for task commands first
-        task_response = process_task_command(user_message)
-        if task_response:
-            print("Avustaja:", task_response)
+        # Intercept 'video ...' and route to handle_youtube
+        if user_message.lower().startswith("video"):
+            parts = user_message.split()
+            url = None
+            question = None
+            # Try to find a YouTube link in the message
+            for part in parts[1:]:
+                if part.startswith("http") and ("youtube.com" in part or "youtu.be" in part):
+                    url = part
+                    break
+            if url:
+                q_start = parts.index(url) + 1
+                question = " ".join(parts[q_start:]) if q_start < len(parts) else None
+            else:
+                question = " ".join(parts[1:]) if len(parts) > 1 else None
+            handle_youtube(url=url, action="ask", question=question)
             continue
-        
-        # Log user message to conversation history
-        memory_manager.log_conversation("User", user_message)
-        
-        result = process_with_openai(user_message)
-        print("Avustaja:", result)
-        
-        # Log assistant response to conversation history
-        memory_manager.log_conversation("Assistant", result)
-        
-        # Extract memories from the conversation
-        memory_manager.extract_memory_from_conversation(user_message, result)
+        try:
+            # Check for task commands first
+            task_response = process_task_command(user_message)
+            if task_response:
+                print("Avustaja:", task_response)
+                continue
+            # Log user message to conversation history
+            memory_manager.log_conversation("User", user_message)
+            result = process_with_openai(user_message)
+            if detect(result) == "en":
+                result = translate_to_finnish(result)
+            print("Avustaja:", result)
+            # Log assistant response to conversation history
+            memory_manager.log_conversation("Assistant", result)
+            # Extract memories from the conversation
+            memory_manager.extract_memory_from_conversation(user_message, result)
+        except Exception as e:
+            print(f"Virhe: {e}")
 
 def voice_chat():
     """Voice chat mode with screenshot support."""
     print("Puhu tai sano 'exit' lopettaaksesi.")
     print("Sano 'ruutu' ottaaaksesi kuvakaappauksen.")
-    
+    print("Sano 'video <youtube-linkki> <kysymyksesi>' saadaksesi vastauksen videon sisällöstä.")
+    print("Voit myös sanoa 'video <kysymyksesi>', jolloin vastaus perustuu viimeksi käsiteltyyn videoon.")
     while True:
         print("\nKuuntelen...")
         audio_data, sample_rate = record_audio_with_silence_detection()
-        
         if audio_data is None:
             continue
-            
         transcribed_text = transcribe_audio(audio_data, sample_rate)
         if not transcribed_text:
             continue
-            
         print(f"Sinä: {transcribed_text}")
-        
         if transcribed_text.lower() in ["exit", "quit", "lopeta"]:
             break
-            
         # Check for screenshot command
-        if "ruutu" in transcribed_text.lower():
+        lower = transcribed_text.lower()
+        if "ruutu" in lower:
             # Extract question if any
-            question = transcribed_text.lower().replace("ruutu", "").strip()
+            question = lower.replace("ruutu", "").strip()
             handle_screenshot(question)
             continue
-            
+        # Intercept 'video ...' and route to handle_youtube
+        if lower.startswith("video"):
+            parts = transcribed_text.split()
+            url = None
+            question = None
+            for part in parts[1:]:
+                if part.startswith("http") and ("youtube.com" in part or "youtu.be" in part):
+                    url = part
+                    break
+            if url:
+                q_start = parts.index(url) + 1
+                question = " ".join(parts[q_start:]) if q_start < len(parts) else None
+            else:
+                question = " ".join(parts[1:]) if len(parts) > 1 else None
+            handle_youtube(url=url, action="ask", question=question)
+            continue
         # Check for task commands
         task_response = process_task_command(transcribed_text)
         if task_response:
             print("Avustaja:", task_response)
             speak_text(task_response)
             continue
-        
         # Log user message to conversation history
         memory_manager.log_conversation("User", transcribed_text)
-        
         result = process_with_openai(transcribed_text)
+        if detect(result) == "en":
+            result = translate_to_finnish(result)
         print("Avustaja:", result)
         speak_text(result)
-        
         # Log assistant response to conversation history
         memory_manager.log_conversation("Assistant", result)
-        
         # Extract memories from the conversation
         memory_manager.extract_memory_from_conversation(transcribed_text, result)
 
@@ -753,6 +913,16 @@ def list_google_finnish_voices():
         speak_text_google(example_text)
     except Exception as e:
         print(f"Virhe äänien listauksessa: {e}")
+
+def translate_to_finnish(text):
+    prompt = f"Käännä seuraava teksti suomeksi:\n\n{text}"
+    response = openai_client.chat.completions.create(
+        model=CHAT_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        max_tokens=1000
+    )
+    return response.choices[0].message.content
 
 def main():
     """Main function to run the assistant."""

@@ -14,20 +14,20 @@
 - [ ] Screenshot capture and analysis:
   - [ ] Trigger methods:
     - [ ] Print Screen key press detection
-    - [ ] Voice command "ruutu" or "screenshot"
-    - [ ] Custom keyboard shortcut
+    - [x] Voice command "ruutu" or "screenshot"
+    - [x] Custom keyboard shortcut
   - [ ] Screenshot processing:
-    - [ ] Automatic capture of full screen or active window
+    - [x] Automatic capture of full screen or active window
     - [ ] Optional region selection
     - [ ] Temporary storage of screenshots
   - [ ] Analysis capabilities:
-    - [ ] Use GPT-4 Vision (gpt-4-vision-preview) for image analysis
-    - [ ] Send screenshot to AI model for analysis
+    - [x] Use GPT-4 Vision (gpt-4-turbo) for image analysis
+    - [x] Send screenshot to AI model for analysis
     - [ ] Support for simultaneous voice/text questions
-    - [ ] Context-aware responses based on image content
+    - [x] Context-aware responses based on image content
     - [ ] OCR for text extraction from screenshots
   - [ ] User interaction:
-    - [ ] Voice feedback during capture
+    - [x] Voice feedback during capture
     - [ ] Preview of captured screenshot
     - [ ] Option to retake or cancel
     - [ ] Confirmation of successful capture
@@ -36,26 +36,26 @@
     - [ ] Screenshot history with timestamps
     - [ ] Link screenshots to relevant conversations
   - [ ] Privacy considerations:
-    - [ ] Clear indication when screenshot is being taken
+    - [x] Clear indication when screenshot is being taken
     - [ ] Option to exclude sensitive windows
     - [ ] Automatic cleanup of temporary files
   - [ ] Technical implementation:
-    - [ ] Use OpenAI's gpt-4-vision-preview model
-    - [ ] Handle image encoding and API requests
-    - [ ] Process model responses
+    - [x] Use OpenAI's gpt-4-turbo model
+    - [x] Handle image encoding and API requests
+    - [x] Process model responses
     - [ ] Manage API rate limits and costs
   - [ ] Implementation details:
-    - [ ] Add keyboard monitoring for Ctrl+P:
+    - [x] Add keyboard monitoring for Ctrl+P:
       ```python
       import keyboard
       keyboard.add_hotkey('ctrl+p', take_screenshot)
       ```
-    - [ ] Add voice command "ruutu" to voice recognition:
+    - [x] Add voice command "ruutu" to voice recognition:
       ```python
       if "ruutu" in transcribed_text.lower():
           take_screenshot()
       ```
-    - [ ] Screenshot capture function:
+    - [x] Screenshot capture function:
       ```python
       from PIL import ImageGrab
       import io
@@ -72,11 +72,11 @@
           base64_image = base64.b64encode(img_byte_arr).decode('utf-8')
           return base64_image
       ```
-    - [ ] GPT-4 Vision integration:
+    - [x] GPT-4 Vision integration:
       ```python
       def analyze_screenshot(base64_image, question=""):
           response = openai_client.chat.completions.create(
-              model="gpt-4-vision-preview",
+              model="gpt-4-turbo",
               messages=[
                   {
                       "role": "user",
@@ -97,7 +97,7 @@
       ```
     - [ ] Integration with chat modes:
       - [ ] Text mode: Capture screenshot and ask for question
-      - [ ] Voice mode: Capture screenshot and use voice question
+      - [x] Voice mode: Capture screenshot and use voice question
       - [ ] Store screenshot and analysis in conversation history
 
 ### Chat Modes
@@ -351,6 +351,18 @@
   - [ ] Learns from user corrections
   - [ ] Adapts to user's communication style
   - [ ] Builds personal context understanding
+
+### Daily Logging & Journaling
+- [x] Manual journal entries via voice or text
+- [ ] Automatic end-of-day summary generation based on chat history
+- [ ] Interactive daily dashboard with key metrics (tasks completed, mood, time allocation)
+- [ ] Tagging and categorization of activities (e.g., work, exercise, personal, meals)
+- [ ] Habit and goal tracking with progress visualizations
+- [ ] Mood and sentiment analysis for emotional tracking
+- [ ] Integration with calendar and task data for comprehensive log
+- [x] Reminders and prompts for evening reflection
+- [ ] Exportable logs in CSV/JSON formats
+- [ ] Search and filter capabilities for past entries
 
 ### Workout and Structured Data Logging
 - [x] Free-form workout notes can be logged to `memories.txt`.

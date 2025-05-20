@@ -1,5 +1,6 @@
 import os
 import datetime
+import json
 from pathlib import Path
 import traceback
 from typing import List, Optional
@@ -28,13 +29,14 @@ class MemoryManager:
         self.memories_file = os.path.join(knowledge_dir, "memories.txt")
         self.ideas_file = os.path.join(knowledge_dir, "ideas.txt")
         self.conversation_file = os.path.join(knowledge_dir, "conversation_history.txt")
-        
+        self.daily_logs_file = os.path.join(knowledge_dir, "daily_logs.json")
+
         # Ensure the knowledge directory exists
         try:
             os.makedirs(knowledge_dir, exist_ok=True)
         except Exception as e:
             raise RuntimeError(f"Failed to create knowledge directory: {e}")
-        
+
         # Create files if they don't exist
         self._ensure_files_exist()
     
@@ -53,6 +55,13 @@ class MemoryManager:
                         f.write(content)
             except Exception as e:
                 raise RuntimeError(f"Failed to create file {file_path}: {e}")
+        # Ensure daily logs file exists with JSON structure
+        try:
+            if not os.path.exists(self.daily_logs_file):
+                with open(self.daily_logs_file, 'w', encoding='utf-8') as f:
+                    json.dump({}, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            raise RuntimeError(f"Failed to create daily logs file: {e}")
     
     def add_memory(self, topic: str, information: str) -> None:
         """
@@ -271,3 +280,44 @@ class MemoryManager:
         last_processed_line_file = os.path.join(self.knowledge_dir, "last_processed_line.txt")
         with open(last_processed_line_file, "w", encoding="utf-8") as f:
             f.write(str(up_to_line)) 
+
+    def has_daily_log(self, date: Optional[str] = None) -> bool:
+        """Check if a daily log exists for the given date (YYYY-MM-DD)."""
+        if date is None:
+            date = datetime.datetime.now().strftime("%Y-%m-%d")
+        try:
+            with open(self.daily_logs_file, 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+        except Exception as e:
+            raise RuntimeError(f"Failed to read daily logs file: {e}")
+        entry = logs.get(date, "")
+        return bool(entry and entry.strip())
+
+    def add_daily_log(self, content: str, date: Optional[str] = None) -> None:
+        """Add or update the daily log entry for the given date."""
+        if not isinstance(content, str):
+            raise TypeError("content must be a string")
+        if date is None:
+            date = datetime.datetime.now().strftime("%Y-%m-%d")
+        try:
+            with open(self.daily_logs_file, 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+        except Exception as e:
+            raise RuntimeError(f"Failed to read daily logs file: {e}")
+        logs[date] = content
+        try:
+            with open(self.daily_logs_file, 'w', encoding='utf-8') as f:
+                json.dump(logs, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            raise RuntimeError(f"Failed to write daily logs file: {e}")
+
+    def get_daily_log(self, date: Optional[str] = None) -> Optional[str]:
+        """Retrieve the daily log entry for the given date, or None if none exists."""
+        if date is None:
+            date = datetime.datetime.now().strftime("%Y-%m-%d")
+        try:
+            with open(self.daily_logs_file, 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+        except Exception as e:
+            raise RuntimeError(f"Failed to read daily logs file: {e}")
+        return logs.get(date)
